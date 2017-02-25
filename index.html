@@ -54,7 +54,7 @@ personalSignButton.addEventListener('click', function(event) {
     alert('PERSONAL SIGNED:' + JSON.stringify(result.result))
 
     console.log('recovering...')
-    method = 'personal_recover'
+    method = 'personal_ecRecover'
     var params = [msg, result.result]
     web3.currentProvider.sendAsync({
       method,
