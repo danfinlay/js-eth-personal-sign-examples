@@ -26,10 +26,21 @@ ethSignButton.addEventListener('click', function(event) {
 
 personalSignButton.addEventListener('click', function(event) {
   event.preventDefault()
-  var msg = '0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e01' // Different length!
+  var msg = '0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e01'
   var from = web3.eth.accounts[0]
+
+  /*  web3.personal.sign not yet implemented!!!
+   *  We're going to have to assemble the tx manually!
+   *  This is what it would probably look like, though:
+    web3.personal.sign(from, msg, function (err, result) {
+      if (err) return console.error(err)
+      alert('PERSONAL SIGNED:' + result)
+    })
+  */
+
   var params = [from, msg]
   var method = 'personal_sign'
+
   web3.currentProvider.sendAsync({
     method,
     params,
@@ -60,13 +71,6 @@ personalSignButton.addEventListener('click', function(event) {
     })
   })
 
-  /*  web3.personal.sign not yet implemented!!!
-
-  web3.personal.sign(from, msg, function (err, result) {
-    if (err) return console.error(err)
-    alert('PERSONAL SIGNED:' + result)
-  })
-  */
 })
 
   </script>
