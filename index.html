@@ -1,0 +1,75 @@
+<!doctype html>
+
+<html>
+  <head>
+    <title>Eth Sign Tests</title>
+  </head>
+
+  <body>
+
+    <button id="ethSignButton">eth_sign</button>
+    <button id="personalSignButton">personal_sign</button>
+
+  </body>
+
+  <script>
+
+ethSignButton.addEventListener('click', function(event) {
+  event.preventDefault()
+  var msg = '0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e0'
+  var from = web3.eth.accounts[0]
+  web3.eth.sign(from, msg, function (err, result) {
+    if (err) return console.error(err)
+    alert('SIGNED:' + result)
+  })
+})
+
+personalSignButton.addEventListener('click', function(event) {
+  event.preventDefault()
+  var msg = '0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e01' // Different length!
+  var from = web3.eth.accounts[0]
+  var params = [from, msg]
+  var method = 'personal_sign'
+  web3.currentProvider.sendAsync({
+    method,
+    params,
+    from,
+  }, function (err, result) {
+    if (err) return console.error(err)
+    if (result.error) return console.error(result.error)
+    alert('PERSONAL SIGNED:' + JSON.stringify(result.result))
+
+    console.log('recovering...')
+    method = 'personal_recover'
+    var params = [msg, result.result]
+    web3.currentProvider.sendAsync({
+      method,
+      params,
+      from,
+    }, function (err, recovered) {
+      console.dir({ err, recovered })
+      if (err) return console.error(err)
+      if (result.error) return console.error(result.error)
+
+      if (result.result === from ) {
+        alert('Successfully verified signer as ' + from)
+      } else {
+        alert('Failed to verify signer when comparing ' + result.result + ' to ' + from)
+      }
+
+    })
+  })
+
+  /*  web3.personal.sign not yet implemented!!!
+
+  web3.personal.sign(from, msg, function (err, result) {
+    if (err) return console.error(err)
+    alert('PERSONAL SIGNED:' + result)
+  })
+  */
+})
+
+  </script>
+
+</html>
+
