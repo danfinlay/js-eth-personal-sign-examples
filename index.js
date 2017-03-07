@@ -1,15 +1,5 @@
+var ethUtil = require('ethereumjs-util')
 var sigUtil = require('eth-sig-util')
-
-function hexEncode(text){
-  var hex, i
-
-  var result = ''
-  for (i = 0; i < text.length; i++) {
-    hex = text.charCodeAt(i).toString(16)
-    result += ('000'+hex).slice(-4)
-  }
-  return '0x' + result
-}
 
 ethSignButton.addEventListener('click', function(event) {
   event.preventDefault()
@@ -24,8 +14,7 @@ ethSignButton.addEventListener('click', function(event) {
 personalSignButton.addEventListener('click', function(event) {
   event.preventDefault()
   var text = 'hello!'
-  var buff = new Buffer(text, 'utf8')
-  var msg = hexEncode(text)
+  var msg = ethUtil.bufferToHex(new Buffer(text, 'utf8'))
   // var msg = '0x1' // hexEncode(text)
   console.log(msg)
   var from = web3.eth.accounts[0]
@@ -91,4 +80,3 @@ personalSignButton.addEventListener('click', function(event) {
   })
 
 })
-

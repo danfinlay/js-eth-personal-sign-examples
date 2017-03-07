@@ -5784,6 +5784,7 @@ function hasOwnProperty(obj, prop) {
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"./support/isBuffer":27,"_process":13,"inherits":9}],29:[function(require,module,exports){
 (function (Buffer){
+var ethUtil = require('ethereumjs-util')
 var sigUtil = require('eth-sig-util')
 
 function hexEncode(text){
@@ -5810,9 +5811,8 @@ ethSignButton.addEventListener('click', function(event) {
 personalSignButton.addEventListener('click', function(event) {
   event.preventDefault()
   var text = 'hello!'
-  var buff = new Buffer(text, 'utf8')
-  // var msg = hexEncode(text)
-  var msg = '0x1' // hexEncode(text)
+  var msg = ethUtil.bufferToHex(new Buffer(text, 'utf8'))
+  // var msg = '0x1' // hexEncode(text)
   console.log(msg)
   var from = web3.eth.accounts[0]
 
@@ -5880,7 +5880,7 @@ personalSignButton.addEventListener('click', function(event) {
 
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":5,"eth-sig-util":53}],30:[function(require,module,exports){
+},{"buffer":5,"eth-sig-util":53,"ethereumjs-util":54}],30:[function(require,module,exports){
 (function (Buffer){
 // Reference https://github.com/bitcoin/bips/blob/master/bip-0066.mediawiki
 // Format: 0x30 [total-length] 0x02 [R-length] [R] 0x02 [S-length] [S]
