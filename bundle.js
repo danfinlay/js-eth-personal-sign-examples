@@ -5783,7 +5783,19 @@ function hasOwnProperty(obj, prop) {
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"./support/isBuffer":27,"_process":13,"inherits":9}],29:[function(require,module,exports){
+(function (Buffer){
 var sigUtil = require('eth-sig-util')
+
+function hexEncode(text){
+  var hex, i
+
+  var result = ''
+  for (i = 0; i < text.length; i++) {
+    hex = text.charCodeAt(i).toString(16)
+    result += ('000'+hex).slice(-4)
+  }
+  return '0x' + result
+}
 
 ethSignButton.addEventListener('click', function(event) {
   event.preventDefault()
@@ -5797,7 +5809,11 @@ ethSignButton.addEventListener('click', function(event) {
 
 personalSignButton.addEventListener('click', function(event) {
   event.preventDefault()
-  var msg = '0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e01'
+  var text = 'hello!'
+  var buff = new Buffer(text, 'utf8')
+  // var msg = hexEncode(text)
+  var msg = '0x1' // hexEncode(text)
+  console.log(msg)
   var from = web3.eth.accounts[0]
 
   /*  web3.personal.sign not yet implemented!!!
@@ -5832,6 +5848,7 @@ personalSignButton.addEventListener('click', function(event) {
     if (recovered === from ) {
       alert('SigUtil Successfully verified signer as ' + from)
     } else {
+      console.dir(recovered)
       alert('SigUtil Failed to verify signer when comparing ' + recovered.result + ' to ' + from)
       console.log('Failed, comparing %s to %s', recovered, from)
     }
@@ -5862,7 +5879,8 @@ personalSignButton.addEventListener('click', function(event) {
 })
 
 
-},{"eth-sig-util":53}],30:[function(require,module,exports){
+}).call(this,require("buffer").Buffer)
+},{"buffer":5,"eth-sig-util":53}],30:[function(require,module,exports){
 (function (Buffer){
 // Reference https://github.com/bitcoin/bips/blob/master/bip-0066.mediawiki
 // Format: 0x30 [total-length] 0x02 [R-length] [R] 0x02 [S-length] [S]
