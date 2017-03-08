@@ -5908,11 +5908,13 @@ personalRecoverTest.addEventListener('click', function(event) {
       method,
       params,
       from,
-    }, function (err, recovered) {
+    }, function (err, result) {
+      var recovered = result.result
       console.log('ec recover called back:')
       console.dir({ err, recovered })
       if (err) return console.error(err)
       if (result.error) return console.error(result.error)
+
 
       if (recovered === from ) {
         console.log('Successfully ecRecovered signer as ' + from)
