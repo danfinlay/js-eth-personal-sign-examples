@@ -1,5 +1,10 @@
 var ethUtil = require('ethereumjs-util')
 var sigUtil = require('eth-sig-util')
+var Eth = require('ethjs')
+window.Eth = Eth
+
+var fs = require('fs')
+var terms = fs.readFileSync(__dirname + '/terms.txt').toString()
 
 ethSignButton.addEventListener('click', function(event) {
   event.preventDefault()
@@ -13,7 +18,7 @@ ethSignButton.addEventListener('click', function(event) {
 
 personalSignButton.addEventListener('click', function(event) {
   event.preventDefault()
-  var text = 'hello!'
+  var text = terms
   var msg = ethUtil.bufferToHex(new Buffer(text, 'utf8'))
   // var msg = '0x1' // hexEncode(text)
   console.log(msg)
@@ -140,3 +145,36 @@ personalRecoverTest.addEventListener('click', function(event) {
   })
 
 })
+
+ethjsPersonalSignButton.addEventListener('click', function(event) {
+  event.preventDefault()
+  var text = terms
+  var msg = ethUtil.bufferToHex(new Buffer(text, 'utf8'))
+  var from = web3.eth.accounts[0]
+
+   console.log('CLICKED, SENDING PERSONAL SIGN REQ')
+  var params = [from, msg]
+  var method = 'personal_sign'
+
+
+  // Now with Eth.js
+  var eth = new Eth(web3.currentProvider)
+
+  eth.personal_sign(from, msg)
+  .then((signed) => {
+    console.log('Signed!  Result is: ', signed)
+    console.log('Recovering...')
+
+    return eth.personal_ecRecover(msg, signed)
+  })
+  .then((recovered) => {
+
+    if (recovered === from) {
+      console.log('Ethjs recovered the message signer!')
+    } else {
+      console.log('Ethjs failed to recover the message signer!')
+      console.dir({ recovered })
+    }
+  })
+})
+

@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "browserify index.js -o bundle.js"
+    "build": "browserify -t brfs index.js -o bundle.js"
   },
   "repository": {
     "type": "git",
@@ -19,6 +19,10 @@
   "homepage": "https://github.com/flyswatter/js-eth-personal-sign-examples#readme",
   "dependencies": {
     "eth-sig-util": "^1.2.0",
-    "ethereumjs-util": "^5.1.1"
+    "ethereumjs-util": "^5.1.1",
+    "ethjs": "^0.2.6"
+  },
+  "devDependencies": {
+    "brfs": "^1.4.3"
   }
 }
