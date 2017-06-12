@@ -27,14 +27,14 @@ personalSignButton.addEventListener('click', function(event) {
   /*  web3.personal.sign not yet implemented!!!
    *  We're going to have to assemble the tx manually!
    *  This is what it would probably look like, though:
-    web3.personal.sign(from, msg, function (err, result) {
+    web3.personal.sign(msg, from) function (err, result) {
       if (err) return console.error(err)
       console.log('PERSONAL SIGNED:' + result)
     })
   */
 
    console.log('CLICKED, SENDING PERSONAL SIGN REQ')
-  var params = [from, msg]
+  var params = [msg, from]
   var method = 'personal_sign'
 
   web3.currentProvider.sendAsync({
@@ -98,14 +98,14 @@ personalRecoverTest.addEventListener('click', function(event) {
   /*  web3.personal.sign not yet implemented!!!
    *  We're going to have to assemble the tx manually!
    *  This is what it would probably look like, though:
-    web3.personal.sign(from, msg, function (err, result) {
+    web3.personal.sign(msg, from) function (err, result) {
       if (err) return console.error(err)
       console.log('PERSONAL SIGNED:' + result)
     })
   */
 
    console.log('CLICKED, SENDING PERSONAL SIGN REQ')
-  var params = [from, msg]
+  var params = [msg, from]
   var method = 'personal_sign'
 
   web3.currentProvider.sendAsync({
@@ -160,7 +160,7 @@ ethjsPersonalSignButton.addEventListener('click', function(event) {
   // Now with Eth.js
   var eth = new Eth(web3.currentProvider)
 
-  eth.personal_sign(from, msg)
+  eth.personal_sign(msg, from)
   .then((signed) => {
     console.log('Signed!  Result is: ', signed)
     console.log('Recovering...')
