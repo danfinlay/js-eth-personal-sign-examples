@@ -20,7 +20,7 @@
   "dependencies": {
     "eth-sig-util": "^1.2.0",
     "ethereumjs-util": "^5.1.1",
-    "ethjs": "^0.2.6"
+    "ethjs": "^0.3.0"
   },
   "devDependencies": {
     "brfs": "^1.4.3"

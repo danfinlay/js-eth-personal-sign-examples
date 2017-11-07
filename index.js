@@ -152,10 +152,8 @@ ethjsPersonalSignButton.addEventListener('click', function(event) {
   var msg = ethUtil.bufferToHex(new Buffer(text, 'utf8'))
   var from = web3.eth.accounts[0]
 
-   console.log('CLICKED, SENDING PERSONAL SIGN REQ')
+  console.log('CLICKED, SENDING PERSONAL SIGN REQ')
   var params = [from, msg]
-  var method = 'personal_sign'
-
 
   // Now with Eth.js
   var eth = new Eth(web3.currentProvider)
@@ -235,3 +233,41 @@ signTypedDataButton.addEventListener('click', function(event) {
 
 })
 
+ethjsSignTypedDataButton.addEventListener('click', function(event) {
+  event.preventDefault()
+
+  const msgParams = [
+    {
+      type: 'string',
+      name: 'Message',
+      value: 'Hi, Alice!'
+    },
+    {
+      type: 'uint32',
+      name: 'A number',
+      value: '1337'
+    }
+  ]
+
+  var from = web3.eth.accounts[0]
+
+  console.log('CLICKED, SENDING PERSONAL SIGN REQ')
+  var params = [msgParams, from]
+
+  var eth = new Eth(web3.currentProvider)
+
+  eth.signTypedData(msgParams, from)
+  .then((signed) => {
+    console.log('Signed!  Result is: ', signed)
+    console.log('Recovering...')
+
+    const recovered = sigUtil.recoverTypedSignature({ data: msgParams, sig: signed })
+
+    if (recovered === from ) {
+      alert('Successfully ecRecovered signer as ' + from)
+    } else {
+      alert('Failed to verify signer when comparing ' + signed + ' to ' + from)
+    }
+
+  })
+})

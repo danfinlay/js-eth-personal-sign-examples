@@ -6644,10 +6644,8 @@ ethjsPersonalSignButton.addEventListener('click', function(event) {
   var msg = ethUtil.bufferToHex(new Buffer(text, 'utf8'))
   var from = web3.eth.accounts[0]
 
-   console.log('CLICKED, SENDING PERSONAL SIGN REQ')
+  console.log('CLICKED, SENDING PERSONAL SIGN REQ')
   var params = [from, msg]
-  var method = 'personal_sign'
-
 
   // Now with Eth.js
   var eth = new Eth(web3.currentProvider)
@@ -6686,10 +6684,6 @@ signTypedDataButton.addEventListener('click', function(event) {
       value: '1337'
     }
   ]
-
-  /*
-  const signature = sigUtil.signTypedData(privKey, msgParams)
-  */
 
   var from = web3.eth.accounts[0]
 
@@ -6731,9 +6725,47 @@ signTypedDataButton.addEventListener('click', function(event) {
 
 })
 
+ethjsSignTypedDataButton.addEventListener('click', function(event) {
+  event.preventDefault()
+
+  const msgParams = [
+    {
+      type: 'string',
+      name: 'Message',
+      value: 'Hi, Alice!'
+    },
+    {
+      type: 'uint32',
+      name: 'A number',
+      value: '1337'
+    }
+  ]
+
+  var from = web3.eth.accounts[0]
+
+  console.log('CLICKED, SENDING PERSONAL SIGN REQ')
+  var params = [msgParams, from]
+
+  var eth = new Eth(web3.currentProvider)
+
+  eth.signTypedData(msgParams, from)
+  .then((signed) => {
+    console.log('Signed!  Result is: ', signed)
+    console.log('Recovering...')
+
+    const recovered = sigUtil.recoverTypedSignature({ data: msgParams, sig: signed })
+
+    if (recovered === from ) {
+      alert('Successfully ecRecovered signer as ' + from)
+    } else {
+      alert('Failed to verify signer when comparing ' + signed + ' to ' + from)
+    }
+
+  })
+})
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":4,"eth-sig-util":59,"ethereumjs-util":63,"ethjs":77}],34:[function(require,module,exports){
+},{"buffer":4,"eth-sig-util":59,"ethereumjs-util":63,"ethjs":73}],34:[function(require,module,exports){
 (function (Buffer){
 // Reference https://github.com/bitcoin/bips/blob/master/bip-0066.mediawiki
 // Format: 0x30 [total-length] 0x02 [R-length] [R] 0x02 [S-length] [S]
@@ -17184,7 +17216,7 @@ exports.defineProperties = function (self, fields, data) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"assert":1,"bn.js":35,"buffer":4,"create-hash":40,"ethjs-util":76,"keccak":89,"rlp":100,"secp256k1":101}],64:[function(require,module,exports){
+},{"assert":1,"bn.js":35,"buffer":4,"create-hash":40,"ethjs-util":72,"keccak":89,"rlp":100,"secp256k1":101}],64:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -17205,7 +17237,7 @@ function Result() {}
 
 function encodeParams(types, values) {
   if (types.length !== values.length) {
-    throw new Error('[ethjs-abi] while encoding params, types/values mismatch, types length ' + types.length + ' should be ' + values.length);
+    throw new Error('[ethjs-abi] while encoding params, types/values mismatch, Your contract requires ' + types.length + ' types (arguments), and you passed in ' + values.length);
   }
 
   var parts = [];
@@ -17252,6 +17284,8 @@ function encodeParams(types, values) {
 
 // decode bytecode data from output names and types
 function decodeParams(names, types, data) {
+  var useNumberedParams = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : true;
+
   // Names is optional, so shift over all the parameters if not provided
   if (arguments.length < 3) {
     data = types;
@@ -17273,7 +17307,7 @@ function decodeParams(names, types, data) {
       var result = coder.decode(data, offset);
       offset += result.consumed;
     }
-    values[index] = result.value;
+    if (useNumberedParams) values[index] = result.value;
     if (names[index]) {
       values[names[index]] = result.value;
     }
@@ -17303,12 +17337,61 @@ function encodeEvent(eventObject, values) {
   return encodeMethod(eventObject, values);
 }
 
-// decode method data bytecode, from method ABI object
-function decodeEvent(eventObject, data) {
-  var inputNames = utils.getKeys(eventObject.inputs, 'name', true);
-  var inputTypes = utils.getKeys(eventObject.inputs, 'type');
+function eventSignature(eventObject) {
+  var signature = eventObject.name + '(' + utils.getKeys(eventObject.inputs, 'type').join(',') + ')';
+  return '0x' + utils.keccak256(signature);
+}
 
-  return decodeParams(inputNames, inputTypes, utils.hexOrBuffer(data));
+// decode method data bytecode, from method ABI object
+function decodeEvent(eventObject, data, topics) {
+  var useNumberedParams = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : true;
+
+  var nonIndexed = eventObject.inputs.filter(function (input) {
+    return !input.indexed;
+  });
+  var nonIndexedNames = utils.getKeys(nonIndexed, 'name', true);
+  var nonIndexedTypes = utils.getKeys(nonIndexed, 'type');
+  var event = decodeParams(nonIndexedNames, nonIndexedTypes, utils.hexOrBuffer(data), useNumberedParams);
+  var topicOffset = eventObject.anonymous ? 0 : 1;
+  eventObject.inputs.filter(function (input) {
+    return input.indexed;
+  }).map(function (input, i) {
+    var topic = new Buffer(topics[i + topicOffset].slice(2), 'hex');
+    var coder = getParamCoder(input.type);
+    event[input.name] = coder.decode(topic, 0).value;
+  });
+  event._eventName = eventObject.name;
+  return event;
+}
+
+// Decode a specific log item with a specific event abi
+function decodeLogItem(eventObject, log) {
+  var useNumberedParams = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+
+  if (eventObject && log.topics[0] === eventSignature(eventObject)) {
+    return decodeEvent(eventObject, log.data, log.topics, useNumberedParams);
+  }
+}
+
+// Create a decoder for all events defined in an abi. It returns a function which is called
+// on an array of log entries such as received from getLogs or getTransactionReceipt and parses
+// any matching log entries
+function logDecoder(abi) {
+  var useNumberedParams = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+
+  var eventMap = {};
+  abi.filter(function (item) {
+    return item.type === 'event';
+  }).map(function (item) {
+    eventMap[eventSignature(item)] = item;
+  });
+  return function (logItems) {
+    return logItems.map(function (log) {
+      return decodeLogItem(eventMap[log.topics[0]], log, useNumberedParams);
+    }).filter(function (i) {
+      return i;
+    });
+  };
 }
 
 module.exports = {
@@ -17317,7 +17400,10 @@ module.exports = {
   encodeMethod: encodeMethod,
   decodeMethod: decodeMethod,
   encodeEvent: encodeEvent,
-  decodeEvent: decodeEvent
+  decodeEvent: decodeEvent,
+  decodeLogItem: decodeLogItem,
+  logDecoder: logDecoder,
+  eventSignature: eventSignature
 };
 }).call(this,require("buffer").Buffer)
 },{"./utils/index.js":65,"buffer":4}],65:[function(require,module,exports){
@@ -17477,7 +17563,7 @@ function coderFixedBytes(length) {
       return result;
     },
     decode: function decodeFixedBytes(data, offset) {
-      if (data.length < offset + 32) {
+      if (data.length !== 0 && data.length < offset + 32) {
         throw new Error('[ethjs-abi] while decoding fixed bytes, invalid bytes data length: ' + length);
       }
 
@@ -17502,7 +17588,13 @@ var coderAddress = {
     return result;
   },
   decode: function decodeAddress(data, offset) {
-    if (data.length < offset + 32) {
+    if (data.length === 0) {
+      return {
+        consumed: 32,
+        value: '0x'
+      };
+    }
+    if (data.length !== 0 && data.length < offset + 32) {
       throw new Error('[ethjs-abi] while decoding address data, invalid address data, invalid byte length ' + data.length);
     }
     return {
@@ -17521,13 +17613,13 @@ function encodeDynamicBytesHelper(value) {
 }
 
 function decodeDynamicBytesHelper(data, offset) {
-  if (data.length < offset + 32) {
+  if (data.length !== 0 && data.length < offset + 32) {
     throw new Error('[ethjs-abi] while decoding dynamic bytes data, invalid bytes length: ' + data.length + ' should be less than ' + (offset + 32));
   }
 
   var length = uint256Coder.decode(data, offset).value; // eslint-disable-line
   length = length.toNumber();
-  if (data.length < offset + 32 + length) {
+  if (data.length !== 0 && data.length < offset + 32 + length) {
     throw new Error('[ethjs-abi] while decoding dynamic bytes data, invalid bytes length: ' + data.length + ' should be less than ' + (offset + 32 + length));
   }
 
@@ -17768,6 +17860,16 @@ function getCallableMethodsFromABI(contractABI) {
 
 function contractFactory(query) {
   return function ContractFactory(contractABI, contractBytecode, contractDefaultTxObject) {
+    if (!Array.isArray(contractABI)) {
+      throw new Error('[ethjs-contract] Contract ABI must be type Array, got type ' + typeof contractABI);
+    }
+    if (typeof contractBytecode !== 'undefined' && typeof contractBytecode !== 'string') {
+      throw new Error('[ethjs-contract] Contract bytecode must be type String, got type ' + typeof contractBytecode);
+    }
+    if (typeof contractDefaultTxObject !== 'undefined' && typeof contractDefaultTxObject !== 'object') {
+      throw new Error('[ethjs-contract] Contract default tx object must be type Object, got type ' + typeof contractABI);
+    }
+
     var output = {};
     output.at = function atContract(address) {
       function Contract() {
@@ -17827,19 +17929,26 @@ function contractFactory(query) {
                 query[queryMethod](methodTxObject, newMethodCallback);
               });
             } else if (methodObject.type === 'event') {
-              var filterInputTypes = getKeys(methodObject.inputs, 'type', false);
-              var filterTopic = '0x' + keccak256(methodObject.name + '(' + filterInputTypes.join(',') + ')');
-              var argsObject = Object.assign({}, methodArgs[0]) || {};
+              var _ret = function () {
+                var filterInputTypes = getKeys(methodObject.inputs, 'type', false);
+                var filterTopic = '0x' + keccak256(methodObject.name + '(' + filterInputTypes.join(',') + ')');
+                var filterTopcis = [filterTopic];
+                var argsObject = Object.assign({}, methodArgs[0]) || {};
 
-              return new self.filters.Filter(Object.assign({}, argsObject, {
-                decoder: function decoder(logData) {
-                  return abi.decodeEvent(methodObject, logData);
-                },
-                defaultFilterObject: Object.assign({}, methodArgs[0] || {}, {
-                  to: self.address,
-                  topics: [filterTopic]
-                })
-              }));
+                return {
+                  v: new self.filters.Filter(Object.assign({}, argsObject, {
+                    decoder: function decoder(logData) {
+                      return abi.decodeEvent(methodObject, logData, filterTopcis);
+                    },
+                    defaultFilterObject: Object.assign({}, methodArgs[0] || {}, {
+                      to: self.address,
+                      topics: filterTopcis
+                    })
+                  }))
+                };
+              }();
+
+              if (typeof _ret === "object") return _ret.v;
             }
           };
         });
@@ -18264,255 +18373,6 @@ module.exports = EthFilter;
 },{}],69:[function(require,module,exports){
 'use strict';
 
-var schema = require('ethjs-schema');
-var util = require('ethjs-util');
-var numberToBN = require('number-to-bn');
-var stripHexPrefix = require('strip-hex-prefix');
-var padToEven = util.padToEven;
-var arrayContainsArray = util.arrayContainsArray;
-var getBinarySize = util.getBinarySize;
-
-/**
- * Format quantity values, either encode to hex or decode to BigNumber
- * should intake null, stringNumber, number, BN
- *
- * @method formatQuantity
- * @param {String|BigNumber|Number} value quantity or tag to convert
- * @param {Boolean} encode to hex or decode to BigNumber
- * @returns {Optional} output to BigNumber or string
- * @throws error if value is a float
- */
-function formatQuantity(value, encode) {
-  if (['string', 'number', 'object'].indexOf(typeof value) === -1 || value === null) {
-    return value;
-  }
-
-  var numberValue = numberToBN(value);
-
-  if (numberToBN(value).isNeg()) {
-    throw new Error('[ethjs-format] while formatting quantity \'' + numberValue.toString(10) + '\', invalid negative number. Number must be positive or zero.');
-  }
-
-  return encode ? '0x' + padToEven(numberValue.toString(16)) : numberValue;
-}
-
-/**
- * Format quantity or tag, if tag bypass return, else format quantity
- * should intake null, stringNumber, number, BN, string tag
- *
- * @method formatQuantityOrTag
- * @param {String|BigNumber|Number} value quantity or tag to convert
- * @param {Boolean} encode encode the number to hex or decode to BigNumber
- * @returns {Object|String} output to BigNumber or string
- * @throws error if value is a float
- */
-function formatQuantityOrTag(value, encode) {
-  var output = value; // eslint-disable-line
-
-  // if the value is a tag, bypass
-  if (schema.tags.indexOf(value) === -1) {
-    output = formatQuantity(value, encode);
-  }
-
-  return output;
-}
-
-/**
- * FormatData under strict conditions hex prefix
- *
- * @method formatData
- * @param {String} value the bytes data to be formatted
- * @param {Number} byteLength the required byte length (usually 20 or 32)
- * @returns {String} output output formatted data
- * @throws error if minimum length isnt met
- */
-function formatData(value, byteLength) {
-  var output = value; // eslint-disable-line
-  var outputByteLength = 0; // eslint-disable-line
-
-  // prefix only under strict conditions, else bypass
-  if (typeof value === 'string') {
-    output = '0x' + padToEven(stripHexPrefix(value));
-    outputByteLength = getBinarySize(output);
-  }
-
-  // throw if bytelength is not correct
-  if (typeof byteLength === 'number' && value !== null && output !== '0x' // support empty values
-  && (!/^[0-9A-Fa-f]+$/.test(stripHexPrefix(output)) || outputByteLength !== 2 + byteLength * 2)) {
-    throw new Error('[ethjs-format] hex string \'' + output + '\' must be an alphanumeric ' + (2 + byteLength * 2) + ' utf8 byte hex (chars: a-fA-F) string, is ' + outputByteLength + ' bytes');
-  }
-
-  return output;
-}
-
-/**
- * Format object, even with random RPC caviets
- *
- * @method formatObject
- * @param {String|Array} formatter the unit to convert to, default ether
- * @param {Object} value the object value
- * @param {Boolean} encode encode to hex or decode to BigNumber
- * @returns {Object} output object
- * @throws error if value is a float
- */
-function formatObject(formatter, value, encode) {
-  var output = Object.assign({}, value); // eslint-disable-line
-  var formatObject = null; // eslint-disable-line
-
-  // if the object is a string flag, then retreive the object
-  if (typeof formatter === 'string') {
-    if (formatter === 'Boolean|EthSyncing') {
-      formatObject = Object.assign({}, schema.objects.EthSyncing);
-    } else if (formatter === 'DATA|Transaction') {
-      formatObject = Object.assign({}, schema.objects.Transaction);
-    } else {
-      formatObject = Object.assign({}, schema.objects[formatter]);
-    }
-  }
-
-  // check if all required data keys are fulfilled
-  if (!arrayContainsArray(Object.keys(value), formatObject.__required)) {
-    // eslint-disable-line
-    throw new Error('[ethjs-format] object ' + JSON.stringify(value) + ' must contain properties: ' + formatObject.__required.join(', ')); // eslint-disable-line
-  }
-
-  // assume formatObject is an object, go through keys and format each
-  Object.keys(formatObject).forEach(function (valueKey) {
-    if (valueKey !== '__required' && typeof value[valueKey] !== 'undefined') {
-      output[valueKey] = format(formatObject[valueKey], value[valueKey], encode);
-    }
-  });
-
-  return output;
-}
-
-/**
- * Format array
- *
- * @method formatArray
- * @param {String|Array} formatter the unit to convert to, default ether
- * @param {Object} value the value in question
- * @param {Boolean} encode encode to hex or decode to BigNumber
- * @param {Number} lengthRequirement the required minimum array length
- * @returns {Object} output object
- * @throws error if minimum length isnt met
- */
-function formatArray(formatter, value, encode, lengthRequirement) {
-  var output = value.slice(); // eslint-disable-line
-  var formatObject = formatter; // eslint-disable-line
-
-  // if the formatter is an array or data, then make format object an array data
-  if (formatter === 'Array|DATA') {
-    formatObject = ['D'];
-  }
-
-  // if formatter is a FilterChange and acts like a BlockFilter
-  // or PendingTx change format object to tx hash array
-  if (formatter === 'FilterChange' && typeof value[0] === 'string') {
-    formatObject = ['D32'];
-  }
-
-  // enforce minimum value length requirements
-  if (encode === true && typeof lengthRequirement === 'number' && value.length < lengthRequirement) {
-    throw new Error('array ' + JSON.stringify(value) + ' must contain at least ' + lengthRequirement + ' params, but only contains ' + value.length + '.'); // eslint-disable-line
-  }
-
-  // make new array, avoid mutation
-  formatObject = formatObject.slice();
-
-  // assume formatObject is an object, go through keys and format each
-  value.forEach(function (valueKey, valueIndex) {
-    // use key zero as formatter for all values, unless otherwise specified
-    var formatObjectKey = 0; // eslint-disable-line
-
-    // if format array is exact, check each argument against formatter argument
-    if (formatObject.length > 1) {
-      formatObjectKey = valueIndex;
-    }
-
-    output[valueIndex] = format(formatObject[formatObjectKey], valueKey, encode);
-  });
-
-  return output;
-}
-
-/**
- * Format various kinds of data to RPC spec or into digestable JS objects
- *
- * @method format
- * @param {String|Array} formatter the data formatter
- * @param {String|Array|Object|Null|Number} value the data value input
- * @param {Boolean} encode encode to hex or decode to BigNumbers, Strings, Booleans, Null
- * @param {Number} lengthRequirement the minimum data length requirement
- * @throws error if minimum length isnt met
- */
-function format(formatter, value, encode, lengthRequirement) {
-  var output = value; // eslint-disable-line
-
-  // if formatter is quantity or quantity or tag
-  if (formatter === 'Q') {
-    output = formatQuantity(value, encode);
-  } else if (formatter === 'Q|T') {
-    output = formatQuantityOrTag(value, encode);
-  } else if (formatter === 'D') {
-    output = formatData(value); // dont format data flagged objects like compiler output
-  } else if (formatter === 'D20') {
-    output = formatData(value, 20); // dont format data flagged objects like compiler output
-  } else if (formatter === 'D32') {
-    output = formatData(value, 32); // dont format data flagged objects like compiler output
-  } else {
-    // if value is an object or array
-    if (typeof value === 'object' && value !== null && Array.isArray(value) === false) {
-      output = formatObject(formatter, value, encode);
-    } else if (Array.isArray(value)) {
-      output = formatArray(formatter, value, encode, lengthRequirement);
-    }
-  }
-
-  return output;
-}
-
-/**
- * Format RPC inputs generally to the node or TestRPC
- *
- * @method formatInputs
- * @param {Object} method the data formatter
- * @param {Array} inputs the data inputs
- * @returns {Array} output the formatted inputs array
- * @throws error if minimum length isnt met
- */
-function formatInputs(method, inputs) {
-  return format(schema.methods[method][0], inputs, true, schema.methods[method][2]);
-}
-
-/**
- * Format RPC outputs generally from the node or TestRPC
- *
- * @method formatOutputs
- * @param {Object} method the data formatter
- * @param {Array|String|Null|Boolean|Object} outputs the data inputs
- * @returns {Array|String|Null|Boolean|Object} output the formatted data
- */
-function formatOutputs(method, outputs) {
-  return format(schema.methods[method][1], outputs, false);
-}
-
-// export formatters
-module.exports = {
-  schema: schema,
-  formatQuantity: formatQuantity,
-  formatQuantityOrTag: formatQuantityOrTag,
-  formatObject: formatObject,
-  formatArray: formatArray,
-  format: format,
-  formatInputs: formatInputs,
-  formatOutputs: formatOutputs
-};
-},{"ethjs-schema":74,"ethjs-util":70,"number-to-bn":98,"strip-hex-prefix":115}],70:[function(require,module,exports){
-arguments[4][67][0].apply(exports,arguments)
-},{"buffer":4,"dup":67,"is-hex-prefixed":87,"strip-hex-prefix":115}],71:[function(require,module,exports){
-'use strict';
-
 /**
  * @original-authors:
  *   Marek Kotewicz <marek@ethdev.com>
@@ -18617,107 +18477,7 @@ HttpProvider.prototype.sendAsync = function (payload, callback) {
 };
 
 module.exports = HttpProvider;
-},{"xhr2":116}],72:[function(require,module,exports){
-'use strict';
-
-var format = require('ethjs-format');
-var EthRPC = require('ethjs-rpc');
-
-module.exports = Eth;
-
-function Eth(provider, options) {
-  var self = this;
-  var optionsObject = options || {};
-
-  if (!(this instanceof Eth)) {
-    throw new Error('[ethjs-query] the Eth object requires the "new" flag in order to function normally (i.e. `const eth = new Eth(provider);`).');
-  }
-  if (typeof provider !== 'object') {
-    throw new Error('[ethjs-query] the Eth object requires that the first input \'provider\' must be an object, got \'' + typeof provider + '\' (i.e. \'const eth = new Eth(provider);\')');
-  }
-
-  self.options = Object.assign({
-    debug: optionsObject.debug || false,
-    logger: optionsObject.logger || console,
-    jsonSpace: optionsObject.jsonSpace || 0
-  });
-  self.rpc = new EthRPC(provider);
-  self.setProvider = self.rpc.setProvider;
-}
-
-Eth.prototype.log = function log(message) {
-  var self = this;
-  if (self.options.debug) self.options.logger.log('[ethjs-query log] ' + message);
-};
-
-Object.keys(format.schema.methods).forEach(function (rpcMethodName) {
-  Object.defineProperty(Eth.prototype, rpcMethodName.replace('eth_', ''), {
-    enumerable: true,
-    value: generateFnFor(rpcMethodName, format.schema.methods[rpcMethodName])
-  });
-});
-
-function generateFnFor(method, methodObject) {
-  return function outputMethod() {
-    var protoCallback = function protoCallback() {}; // eslint-disable-line
-    var inputs = null; // eslint-disable-line
-    var inputError = null; // eslint-disable-line
-    var self = this;
-    var args = [].slice.call(arguments); // eslint-disable-line
-    var protoMethod = method.replace('eth_', ''); // eslint-disable-line
-
-    if (args.length > 0 && typeof args[args.length - 1] === 'function') {
-      protoCallback = args.pop();
-    }
-
-    return new Promise(function (resolve, reject) {
-      var cb = function cb(callbackError, callbackResult) {
-        if (callbackError) {
-          reject(callbackError);
-          protoCallback(callbackError, null);
-        } else {
-          try {
-            self.log('attempting method formatting for \'' + protoMethod + '\' with raw outputs: ' + JSON.stringify(callbackResult, null, self.options.jsonSpace));
-            var methodOutputs = format.formatOutputs(method, callbackResult);
-            self.log('method formatting success for \'' + protoMethod + '\' formatted result: ' + JSON.stringify(methodOutputs, null, self.options.jsonSpace));
-
-            resolve(methodOutputs);
-            protoCallback(null, methodOutputs);
-          } catch (outputFormattingError) {
-            var outputError = new Error('[ethjs-query] while formatting outputs from RPC \'' + JSON.stringify(callbackResult, null, self.options.jsonSpace) + '\' for method \'' + protoMethod + '\' ' + outputFormattingError);
-
-            reject(outputError);
-            protoCallback(outputError, null);
-          }
-        }
-      };
-
-      if (args.length < methodObject[2]) {
-        return cb(new Error('[ethjs-query] method \'' + protoMethod + '\' requires at least ' + methodObject[2] + ' input (format type ' + methodObject[0][0] + '), ' + args.length + ' provided. For more information visit: https://github.com/ethereum/wiki/wiki/JSON-RPC#' + method.toLowerCase()));
-      }
-
-      if (args.length > methodObject[0].length) {
-        return cb(new Error('[ethjs-query] method \'' + protoMethod + '\' requires at most ' + methodObject[0].length + ' params, ' + args.length + ' provided \'' + JSON.stringify(args, null, self.options.jsonSpace) + '\'. For more information visit: https://github.com/ethereum/wiki/wiki/JSON-RPC#' + method.toLowerCase()));
-      }
-
-      if (methodObject[3] && args.length < methodObject[3]) {
-        args.push('latest');
-      }
-
-      self.log('attempting method formatting for \'' + protoMethod + '\' with inputs ' + JSON.stringify(args, null, self.options.jsonSpace));
-
-      try {
-        inputs = format.formatInputs(method, args);
-        self.log('method formatting success for \'' + protoMethod + '\' with formatted result: ' + JSON.stringify(inputs, null, self.options.jsonSpace));
-      } catch (formattingError) {
-        return cb(new Error('[ethjs-query] while formatting inputs \'' + JSON.stringify(args, null, self.options.jsonSpace) + '\' for method \'' + protoMethod + '\' error: ' + formattingError));
-      }
-
-      return self.rpc.sendAsync({ method: method, params: inputs }, cb);
-    });
-  };
-}
-},{"ethjs-format":69,"ethjs-rpc":73}],73:[function(require,module,exports){
+},{"xhr2":116}],70:[function(require,module,exports){
 'use strict';
 
 module.exports = EthRPC;
@@ -18794,220 +18554,7 @@ function createPayload(data, id) {
     params: []
   }, data);
 }
-},{}],74:[function(require,module,exports){
-module.exports={
-  "methods": {
-    "web3_clientVersion": [[], "S"],
-    "web3_sha3": [["S"], "D", 1],
-    "net_version": [[], "S"],
-    "net_peerCount": [[], "Q"],
-    "net_listening": [[], "B"],
-    "personal_sign": [["D20", "D", "S"], "D", 2],
-    "personal_ecRecover": [["D", "D"], "D20", 2],
-    "eth_protocolVersion": [[], "S"],
-    "eth_syncing": [[], "Boolean|EthSyncing"],
-    "eth_coinbase": [[], "D20"],
-    "eth_mining": [[], "B"],
-    "eth_hashrate": [[], "Q"],
-    "eth_gasPrice": [[], "Q"],
-    "eth_accounts": [[], ["D20"]],
-    "eth_blockNumber": [[], "Q"],
-    "eth_getBalance": [["D20", "Q|T"], "Q", 1, 2],
-    "eth_getStorageAt": [["D20", "Q", "Q|T"], "D", 2, 2],
-    "eth_getTransactionCount": [["D20", "Q|T"], "Q", 1, 2],
-    "eth_getBlockTransactionCountByHash": [["D32"], "Q", 1],
-    "eth_getBlockTransactionCountByNumber": [["Q|T"], "Q", 1],
-    "eth_getUncleCountByBlockHash": [["D32"], "Q", 1],
-    "eth_getUncleCountByBlockNumber": [["Q"], "Q", 1],
-    "eth_getCode": [["D20", "Q|T"], "D", 1, 2],
-    "eth_sign": [["D20", "D32"], "D", 2],
-    "eth_sendTransaction": [["SendTransaction"], "D", 1],
-    "eth_sendRawTransaction": [["D"], "D32", 1],
-    "eth_call": [["CallTransaction", "Q|T"], "D", 1, 2],
-    "eth_estimateGas": [["EstimateTransaction", "Q|T"], "Q", 1],
-    "eth_getBlockByHash": [["D32", "B"], "Block", 2],
-    "eth_getBlockByNumber": [["Q|T", "B"], "Block", 2],
-    "eth_getTransactionByHash": [["D32"], "Transaction", 1],
-    "eth_getTransactionByBlockHashAndIndex": [["D32", "Q"], "Transaction", 2],
-    "eth_getTransactionByBlockNumberAndIndex": [["Q|T", "Q"], "Transaction", 2],
-    "eth_getTransactionReceipt": [["D32"], "Receipt", 1],
-    "eth_getUncleByBlockHashAndIndex": [["D32", "Q"], "Block", 1],
-    "eth_getUncleByBlockNumberAndIndex": [["Q|T", "Q"], "Block", 2],
-    "eth_getCompilers": [[], ["S"]],
-    "eth_compileLLL": [["S"], "D", 1],
-    "eth_compileSolidity": [["S"], "D", 1],
-    "eth_compileSerpent": [["S"], "D", 1],
-    "eth_newFilter": [["Filter"], "Q", 1],
-    "eth_newBlockFilter": [[], "Q"],
-    "eth_newPendingTransactionFilter": [[], "Q"],
-    "eth_uninstallFilter": [["Q"], "B", 1],
-    "eth_getFilterChanges": [["Q"], ["FilterChange"], 1],
-    "eth_getFilterLogs": [["Q"], ["FilterChange"], 1],
-    "eth_getLogs": [["Filter"], ["FilterChange"], 1],
-    "eth_getWork": [[], ["D"]],
-    "eth_submitWork": [["D", "D32", "D32"], "B", 3],
-    "eth_submitHashrate": [["D", "D"], "B", 2],
-    "db_putString": [["S", "S", "S"], "B", 2],
-    "db_getString": [["S", "S"], "S", 2],
-    "db_putHex": [["S", "S", "D"], "B", 2],
-    "db_getHex": [["S", "S"], "D", 2],
-    "shh_post": [["SHHPost"], "B", 1],
-    "shh_version": [[], "S"],
-    "shh_newIdentity": [[], "D"],
-    "shh_hasIdentity": [["D"], "B"],
-    "shh_newGroup": [[], "D"],
-    "shh_addToGroup": [["D"], "B", 1],
-    "shh_newFilter": [["SHHFilter"], "Q", 1],
-    "shh_uninstallFilter": [["Q"], "B", 1],
-    "shh_getFilterChanges": [["Q"], ["SHHFilterChange"], 1],
-    "shh_getMessages": [["Q"], ["SHHFilterChange"], 1]
-  },
-  "tags": ["latest", "earliest", "pending"],
-  "objects": {
-    "EthSyncing": {
-      "__required": [],
-      "startingBlock": "Q",
-      "currentBlock": "Q",
-      "highestBlock": "Q"
-    },
-    "SendTransaction": {
-      "__required": ["from", "data"],
-      "from": "D20",
-      "to": "D20",
-      "gas": "Q",
-      "gasPrice": "Q",
-      "value": "Q",
-      "data": "D",
-      "nonce": "Q"
-    },
-    "EstimateTransaction": {
-      "__required": [],
-      "from": "D20",
-      "to": "D20",
-      "gas": "Q",
-      "gasPrice": "Q",
-      "value": "Q",
-      "data": "D",
-      "nonce": "Q"
-    },
-    "CallTransaction": {
-      "__required": ["to"],
-      "from": "D20",
-      "to": "D20",
-      "gas": "Q",
-      "gasPrice": "Q",
-      "value": "Q",
-      "data": "D",
-      "nonce": "Q"
-    },
-    "Block": {
-      "__required": [],
-      "number": "Q",
-      "hash": "D32",
-      "parentHash": "D32",
-      "nonce": "D",
-      "sha3Uncles": "D",
-      "logsBloom": "D",
-      "transactionsRoot": "D",
-      "stateRoot": "D",
-      "receiptsRoot": "D",
-      "miner": "D",
-      "difficulty": "Q",
-      "totalDifficulty": "Q",
-      "extraData": "D",
-      "size": "Q",
-      "gasLimit": "Q",
-      "gasUsed": "Q",
-      "timestamp": "Q",
-      "transactions": ["DATA|Transaction"],
-      "uncles": ["D"]
-    },
-    "Transaction": {
-      "__required": [],
-      "hash": "D32",
-      "nonce": "Q",
-      "blockHash": "D32",
-      "blockNumber": "Q",
-      "transactionIndex": "Q",
-      "from": "D20",
-      "to": "D20",
-      "value": "Q",
-      "gasPrice": "Q",
-      "gas": "Q",
-      "input": "D"
-    },
-    "Receipt": {
-      "__required": [],
-      "transactionHash": "D32",
-      "transactionIndex": "Q",
-      "blockHash": "D32",
-      "blockNumber": "Q",
-      "cumulativeGasUsed": "Q",
-      "gasUsed": "Q",
-      "contractAddress": "D20",
-      "logs": ["FilterChange"]
-    },
-    "Filter": {
-      "__required": [],
-      "fromBlock": "Q|T",
-      "toBlock": "Q|T",
-      "address": "Array|Data",
-      "topics": ["D"]
-    },
-    "FilterChange": {
-      "__required": [],
-      "removed": "B",
-      "logIndex": "Q",
-      "transactionIndex": "Q",
-      "transactionHash": "D32",
-      "blockHash": "D32",
-      "blockNumber": "Q",
-      "address": "D20",
-      "data": "Array|DATA",
-      "topics": ["D"]
-    },
-    "SHHPost": {
-      "__required": ["topics", "payload", "priority", "ttl"],
-      "from": "D",
-      "to": "D",
-      "topics": ["D"],
-      "payload": "D",
-      "priority": "Q",
-      "ttl": "Q"
-    },
-    "SHHFilter": {
-      "__required": ["topics"],
-      "to": "D",
-      "topics": ["D"]
-    },
-    "SHHFilterChange": {
-      "__required": [],
-      "hash": "D",
-      "from": "D",
-      "to": "D",
-      "expiry": "Q",
-      "ttl": "Q",
-      "sent": "Q",
-      "topics": ["D"],
-      "payload": "D",
-      "workProved": "Q"
-    },
-    "SHHMessage": {
-      "__required": [],
-      "hash": "D",
-      "from": "D",
-      "to": "D",
-      "expiry": "Q",
-      "ttl": "Q",
-      "sent": "Q",
-      "topics": ["D"],
-      "payload": "D",
-      "workProved": "Q"
-    }
-  }
-}
-
-},{}],75:[function(require,module,exports){
+},{}],71:[function(require,module,exports){
 'use strict';
 
 var BN = require('bn.js');
@@ -19176,7 +18723,7 @@ module.exports = {
   fromWei: fromWei,
   toWei: toWei
 };
-},{"bn.js":35,"number-to-bn":98}],76:[function(require,module,exports){
+},{"bn.js":35,"number-to-bn":98}],72:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -19399,7 +18946,7 @@ module.exports = {
   isHexString: isHexString
 };
 }).call(this,require("buffer").Buffer)
-},{"buffer":4,"is-hex-prefixed":87,"strip-hex-prefix":115}],77:[function(require,module,exports){
+},{"buffer":4,"is-hex-prefixed":87,"strip-hex-prefix":115}],73:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -19407,12 +18954,14 @@ var EthQuery = require('ethjs-query');
 var EthFilter = require('ethjs-filter');
 var EthContract = require('ethjs-contract');
 var HttpProvider = require('ethjs-provider-http');
+var abi = require('ethjs-abi');
 // const getTxSuccess = require('ethjs-transaction-success'); // eslint-disable-line
 var unit = require('ethjs-unit');
 var keccak256 = require('js-sha3').keccak_256;
 var toBN = require('number-to-bn');
 var BN = require('bn.js');
 var utils = require('ethjs-util');
+var getTransactionSuccess = require('./lib/getTransactionSuccess.js');
 
 module.exports = Eth;
 
@@ -19446,6 +18995,7 @@ function Eth(cprovider, options) {
   self.contract = new EthContract(query, self.options.query);
   self.currentProvider = query.rpc.currentProvider;
   self.setProvider = query.setProvider;
+  self.getTransactionSuccess = getTransactionSuccess(self);
 }
 
 Eth.BN = BN;
@@ -19460,13 +19010,620 @@ Eth.isHexString = utils.isHexString;
 Eth.fromWei = unit.fromWei;
 Eth.toWei = unit.toWei;
 Eth.toBN = toBN;
+Eth.abi = abi;
 Eth.fromAscii = utils.fromAscii;
 Eth.toAscii = utils.toAscii;
 Eth.fromUtf8 = utils.fromUtf8;
 Eth.toUtf8 = utils.toUtf8;
 Eth.HttpProvider = HttpProvider;
 }).call(this,require("buffer").Buffer)
-},{"bn.js":35,"buffer":4,"ethjs-contract":66,"ethjs-filter":68,"ethjs-provider-http":71,"ethjs-query":72,"ethjs-unit":75,"ethjs-util":78,"js-sha3":88,"number-to-bn":98}],78:[function(require,module,exports){
+},{"./lib/getTransactionSuccess.js":74,"bn.js":35,"buffer":4,"ethjs-abi":64,"ethjs-contract":66,"ethjs-filter":68,"ethjs-provider-http":69,"ethjs-query":76,"ethjs-unit":71,"ethjs-util":78,"js-sha3":88,"number-to-bn":98}],74:[function(require,module,exports){
+"use strict";
+
+module.exports = function (eth) {
+  return function (txHash, callback) {
+    var count = 0;
+
+    var timeout = eth.options.timeout || 800000;
+    var interval = eth.options.interval || 7000;
+    var noop = function noop() {};
+    var cb = callback || noop;
+
+    return new Promise(function (resolve, reject) {
+      var txInterval = setInterval(function () {
+        eth.getTransactionReceipt(txHash, function (err, result) {
+          if (err) {
+            clearInterval(txInterval);
+            cb(err, null);
+            reject(err);
+          }
+
+          if (!err && result) {
+            clearInterval(txInterval);
+            cb(null, result);
+            resolve(result);
+          }
+        });
+
+        if (count >= timeout) {
+          clearInterval(txInterval);
+          var errMessage = "Receipt timeout waiting for tx hash: " + txHash;
+          cb(errMessage, null);
+          reject(errMessage);
+        }
+
+        count += interval;
+      }, interval);
+    });
+  };
+};
+},{}],75:[function(require,module,exports){
+'use strict';
+
+var schema = require('ethjs-schema');
+var util = require('ethjs-util');
+var numberToBN = require('number-to-bn');
+var stripHexPrefix = require('strip-hex-prefix');
+var padToEven = util.padToEven;
+var arrayContainsArray = util.arrayContainsArray;
+var getBinarySize = util.getBinarySize;
+
+/**
+ * Format quantity values, either encode to hex or decode to BigNumber
+ * should intake null, stringNumber, number, BN
+ *
+ * @method formatQuantity
+ * @param {String|BigNumber|Number} value quantity or tag to convert
+ * @param {Boolean} encode to hex or decode to BigNumber
+ * @returns {Optional} output to BigNumber or string
+ * @throws error if value is a float
+ */
+function formatQuantity(value, encode) {
+  if (['string', 'number', 'object'].indexOf(typeof value) === -1 || value === null) {
+    return value;
+  }
+
+  var numberValue = numberToBN(value);
+
+  if (numberToBN(value).isNeg()) {
+    throw new Error('[ethjs-format] while formatting quantity \'' + numberValue.toString(10) + '\', invalid negative number. Number must be positive or zero.');
+  }
+
+  return encode ? '0x' + numberValue.toString(16) : numberValue;
+}
+
+/**
+ * Format quantity or tag, if tag bypass return, else format quantity
+ * should intake null, stringNumber, number, BN, string tag
+ *
+ * @method formatQuantityOrTag
+ * @param {String|BigNumber|Number} value quantity or tag to convert
+ * @param {Boolean} encode encode the number to hex or decode to BigNumber
+ * @returns {Object|String} output to BigNumber or string
+ * @throws error if value is a float
+ */
+function formatQuantityOrTag(value, encode) {
+  var output = value; // eslint-disable-line
+
+  // if the value is a tag, bypass
+  if (schema.tags.indexOf(value) === -1) {
+    output = formatQuantity(value, encode);
+  }
+
+  return output;
+}
+
+/**
+ * FormatData under strict conditions hex prefix
+ *
+ * @method formatData
+ * @param {String} value the bytes data to be formatted
+ * @param {Number} byteLength the required byte length (usually 20 or 32)
+ * @returns {String} output output formatted data
+ * @throws error if minimum length isnt met
+ */
+function formatData(value, byteLength) {
+  var output = value; // eslint-disable-line
+  var outputByteLength = 0; // eslint-disable-line
+
+  // prefix only under strict conditions, else bypass
+  if (typeof value === 'string') {
+    output = '0x' + padToEven(stripHexPrefix(value));
+    outputByteLength = getBinarySize(output);
+  }
+
+  // format double padded zeros.
+  if (output === '0x00') {
+    output = '0x0';
+  }
+
+  // throw if bytelength is not correct
+  if (typeof byteLength === 'number' && value !== null && output !== '0x' && output !== '0x0' // support empty values
+  && (!/^[0-9A-Fa-f]+$/.test(stripHexPrefix(output)) || outputByteLength !== 2 + byteLength * 2)) {
+    throw new Error('[ethjs-format] hex string \'' + output + '\' must be an alphanumeric ' + (2 + byteLength * 2) + ' utf8 byte hex (chars: a-fA-F) string, is ' + outputByteLength + ' bytes');
+  }
+
+  return output;
+}
+
+/**
+ * Format object, even with random RPC caviets
+ *
+ * @method formatObject
+ * @param {String|Array} formatter the unit to convert to, default ether
+ * @param {Object} value the object value
+ * @param {Boolean} encode encode to hex or decode to BigNumber
+ * @returns {Object} output object
+ * @throws error if value is a float
+ */
+function formatObject(formatter, value, encode) {
+  var output = Object.assign({}, value); // eslint-disable-line
+  var formatObject = null; // eslint-disable-line
+
+  // if the object is a string flag, then retreive the object
+  if (typeof formatter === 'string') {
+    if (formatter === 'Boolean|EthSyncing') {
+      formatObject = Object.assign({}, schema.objects.EthSyncing);
+    } else if (formatter === 'DATA|Transaction') {
+      formatObject = Object.assign({}, schema.objects.Transaction);
+    } else {
+      formatObject = Object.assign({}, schema.objects[formatter]);
+    }
+  }
+
+  // check if all required data keys are fulfilled
+  if (!arrayContainsArray(Object.keys(value), formatObject.__required)) {
+    // eslint-disable-line
+    throw new Error('[ethjs-format] object ' + JSON.stringify(value) + ' must contain properties: ' + formatObject.__required.join(', ')); // eslint-disable-line
+  }
+
+  // assume formatObject is an object, go through keys and format each
+  Object.keys(formatObject).forEach(function (valueKey) {
+    if (valueKey !== '__required' && typeof value[valueKey] !== 'undefined') {
+      output[valueKey] = format(formatObject[valueKey], value[valueKey], encode);
+    }
+  });
+
+  return output;
+}
+
+/**
+ * Format array
+ *
+ * @method formatArray
+ * @param {String|Array} formatter the unit to convert to, default ether
+ * @param {Object} value the value in question
+ * @param {Boolean} encode encode to hex or decode to BigNumber
+ * @param {Number} lengthRequirement the required minimum array length
+ * @returns {Object} output object
+ * @throws error if minimum length isnt met
+ */
+function formatArray(formatter, value, encode, lengthRequirement) {
+  var output = value.slice(); // eslint-disable-line
+  var formatObject = formatter; // eslint-disable-line
+
+  // if the formatter is an array or data, then make format object an array data
+  if (formatter === 'Array|DATA') {
+    formatObject = ['D'];
+  }
+
+  // if formatter is a FilterChange and acts like a BlockFilter
+  // or PendingTx change format object to tx hash array
+  if (formatter === 'FilterChange' && typeof value[0] === 'string') {
+    formatObject = ['D32'];
+  }
+
+  // enforce minimum value length requirements
+  if (encode === true && typeof lengthRequirement === 'number' && value.length < lengthRequirement) {
+    throw new Error('array ' + JSON.stringify(value) + ' must contain at least ' + lengthRequirement + ' params, but only contains ' + value.length + '.'); // eslint-disable-line
+  }
+
+  // make new array, avoid mutation
+  formatObject = formatObject.slice();
+
+  // assume formatObject is an object, go through keys and format each
+  value.forEach(function (valueKey, valueIndex) {
+    // use key zero as formatter for all values, unless otherwise specified
+    var formatObjectKey = 0; // eslint-disable-line
+
+    // if format array is exact, check each argument against formatter argument
+    if (formatObject.length > 1) {
+      formatObjectKey = valueIndex;
+    }
+
+    output[valueIndex] = format(formatObject[formatObjectKey], valueKey, encode);
+  });
+
+  return output;
+}
+
+/**
+ * Format various kinds of data to RPC spec or into digestable JS objects
+ *
+ * @method format
+ * @param {String|Array} formatter the data formatter
+ * @param {String|Array|Object|Null|Number} value the data value input
+ * @param {Boolean} encode encode to hex or decode to BigNumbers, Strings, Booleans, Null
+ * @param {Number} lengthRequirement the minimum data length requirement
+ * @throws error if minimum length isnt met
+ */
+function format(formatter, value, encode, lengthRequirement) {
+  var output = value; // eslint-disable-line
+
+  // if formatter is quantity or quantity or tag
+  if (formatter === 'Q') {
+    output = formatQuantity(value, encode);
+  } else if (formatter === 'Q|T') {
+    output = formatQuantityOrTag(value, encode);
+  } else if (formatter === 'D') {
+    output = formatData(value); // dont format data flagged objects like compiler output
+  } else if (formatter === 'D20') {
+    output = formatData(value, 20); // dont format data flagged objects like compiler output
+  } else if (formatter === 'D32') {
+    output = formatData(value, 32); // dont format data flagged objects like compiler output
+  } else {
+    // if value is an object or array
+    if (typeof value === 'object' && value !== null && Array.isArray(value) === false) {
+      output = formatObject(formatter, value, encode);
+    } else if (Array.isArray(value)) {
+      output = formatArray(formatter, value, encode, lengthRequirement);
+    }
+  }
+
+  return output;
+}
+
+/**
+ * Format RPC inputs generally to the node or TestRPC
+ *
+ * @method formatInputs
+ * @param {Object} method the data formatter
+ * @param {Array} inputs the data inputs
+ * @returns {Array} output the formatted inputs array
+ * @throws error if minimum length isnt met
+ */
+function formatInputs(method, inputs) {
+  return format(schema.methods[method][0], inputs, true, schema.methods[method][2]);
+}
+
+/**
+ * Format RPC outputs generally from the node or TestRPC
+ *
+ * @method formatOutputs
+ * @param {Object} method the data formatter
+ * @param {Array|String|Null|Boolean|Object} outputs the data inputs
+ * @returns {Array|String|Null|Boolean|Object} output the formatted data
+ */
+function formatOutputs(method, outputs) {
+  return format(schema.methods[method][1], outputs, false);
+}
+
+// export formatters
+module.exports = {
+  schema: schema,
+  formatQuantity: formatQuantity,
+  formatQuantityOrTag: formatQuantityOrTag,
+  formatObject: formatObject,
+  formatArray: formatArray,
+  format: format,
+  formatInputs: formatInputs,
+  formatOutputs: formatOutputs
+};
+},{"ethjs-schema":77,"ethjs-util":78,"number-to-bn":98,"strip-hex-prefix":115}],76:[function(require,module,exports){
+'use strict';
+
+var format = require('ethjs-format');
+var EthRPC = require('ethjs-rpc');
+
+module.exports = Eth;
+
+function Eth(provider, options) {
+  var self = this;
+  var optionsObject = options || {};
+
+  if (!(this instanceof Eth)) {
+    throw new Error('[ethjs-query] the Eth object requires the "new" flag in order to function normally (i.e. `const eth = new Eth(provider);`).');
+  }
+  if (typeof provider !== 'object') {
+    throw new Error('[ethjs-query] the Eth object requires that the first input \'provider\' must be an object, got \'' + typeof provider + '\' (i.e. \'const eth = new Eth(provider);\')');
+  }
+
+  self.options = Object.assign({
+    debug: optionsObject.debug || false,
+    logger: optionsObject.logger || console,
+    jsonSpace: optionsObject.jsonSpace || 0
+  });
+  self.rpc = new EthRPC(provider);
+  self.setProvider = self.rpc.setProvider;
+}
+
+Eth.prototype.log = function log(message) {
+  var self = this;
+  if (self.options.debug) self.options.logger.log('[ethjs-query log] ' + message);
+};
+
+Object.keys(format.schema.methods).forEach(function (rpcMethodName) {
+  Object.defineProperty(Eth.prototype, rpcMethodName.replace('eth_', ''), {
+    enumerable: true,
+    value: generateFnFor(rpcMethodName, format.schema.methods[rpcMethodName])
+  });
+});
+
+function generateFnFor(method, methodObject) {
+  return function outputMethod() {
+    var protoCallback = function protoCallback() {}; // eslint-disable-line
+    var inputs = null; // eslint-disable-line
+    var inputError = null; // eslint-disable-line
+    var self = this;
+    var args = [].slice.call(arguments); // eslint-disable-line
+    var protoMethod = method.replace('eth_', ''); // eslint-disable-line
+
+    if (args.length > 0 && typeof args[args.length - 1] === 'function') {
+      protoCallback = args.pop();
+    }
+
+    return new Promise(function (resolve, reject) {
+      var cb = function cb(callbackError, callbackResult) {
+        if (callbackError) {
+          reject(callbackError);
+          protoCallback(callbackError, null);
+        } else {
+          try {
+            self.log('attempting method formatting for \'' + protoMethod + '\' with raw outputs: ' + JSON.stringify(callbackResult, null, self.options.jsonSpace));
+            var methodOutputs = format.formatOutputs(method, callbackResult);
+            self.log('method formatting success for \'' + protoMethod + '\' formatted result: ' + JSON.stringify(methodOutputs, null, self.options.jsonSpace));
+
+            resolve(methodOutputs);
+            protoCallback(null, methodOutputs);
+          } catch (outputFormattingError) {
+            var outputError = new Error('[ethjs-query] while formatting outputs from RPC \'' + JSON.stringify(callbackResult, null, self.options.jsonSpace) + '\' for method \'' + protoMethod + '\' ' + outputFormattingError);
+
+            reject(outputError);
+            protoCallback(outputError, null);
+          }
+        }
+      };
+
+      if (args.length < methodObject[2]) {
+        return cb(new Error('[ethjs-query] method \'' + protoMethod + '\' requires at least ' + methodObject[2] + ' input (format type ' + methodObject[0][0] + '), ' + args.length + ' provided. For more information visit: https://github.com/ethereum/wiki/wiki/JSON-RPC#' + method.toLowerCase()));
+      }
+
+      if (args.length > methodObject[0].length) {
+        return cb(new Error('[ethjs-query] method \'' + protoMethod + '\' requires at most ' + methodObject[0].length + ' params, ' + args.length + ' provided \'' + JSON.stringify(args, null, self.options.jsonSpace) + '\'. For more information visit: https://github.com/ethereum/wiki/wiki/JSON-RPC#' + method.toLowerCase()));
+      }
+
+      if (methodObject[3] && args.length < methodObject[3]) {
+        args.push('latest');
+      }
+
+      self.log('attempting method formatting for \'' + protoMethod + '\' with inputs ' + JSON.stringify(args, null, self.options.jsonSpace));
+
+      try {
+        inputs = format.formatInputs(method, args);
+        self.log('method formatting success for \'' + protoMethod + '\' with formatted result: ' + JSON.stringify(inputs, null, self.options.jsonSpace));
+      } catch (formattingError) {
+        return cb(new Error('[ethjs-query] while formatting inputs \'' + JSON.stringify(args, null, self.options.jsonSpace) + '\' for method \'' + protoMethod + '\' error: ' + formattingError));
+      }
+
+      return self.rpc.sendAsync({ method: method, params: inputs }, cb);
+    });
+  };
+}
+},{"ethjs-format":75,"ethjs-rpc":70}],77:[function(require,module,exports){
+module.exports={
+  "methods": {
+    "web3_clientVersion": [[], "S"],
+    "web3_sha3": [["S"], "D", 1],
+    "net_version": [[], "S"],
+    "net_peerCount": [[], "Q"],
+    "net_listening": [[], "B"],
+    "personal_sign": [["D", "D20", "S"], "D", 2],
+    "personal_ecRecover": [["D", "D"], "D20", 2],
+    "eth_protocolVersion": [[], "S"],
+    "eth_syncing": [[], "B|EthSyncing"],
+    "eth_coinbase": [[], "D20"],
+    "eth_mining": [[], "B"],
+    "eth_hashrate": [[], "Q"],
+    "eth_gasPrice": [[], "Q"],
+    "eth_accounts": [[], ["D20"]],
+    "eth_blockNumber": [[], "Q"],
+    "eth_getBalance": [["D20", "Q|T"], "Q", 1, 2],
+    "eth_getStorageAt": [["D20", "Q", "Q|T"], "D", 2, 2],
+    "eth_getTransactionCount": [["D20", "Q|T"], "Q", 1, 2],
+    "eth_getBlockTransactionCountByHash": [["D32"], "Q", 1],
+    "eth_getBlockTransactionCountByNumber": [["Q|T"], "Q", 1],
+    "eth_getUncleCountByBlockHash": [["D32"], "Q", 1],
+    "eth_getUncleCountByBlockNumber": [["Q"], "Q", 1],
+    "eth_getCode": [["D20", "Q|T"], "D", 1, 2],
+    "eth_sign": [["D20", "D32"], "D", 2],
+    "eth_signTypedData": [["Array|DATA", "D20"], "D", 1],
+    "eth_sendTransaction": [["SendTransaction"], "D", 1],
+    "eth_sendRawTransaction": [["D"], "D32", 1],
+    "eth_call": [["CallTransaction", "Q|T"], "D", 1, 2],
+    "eth_estimateGas": [["EstimateTransaction", "Q|T"], "Q", 1],
+    "eth_getBlockByHash": [["D32", "B"], "Block", 2],
+    "eth_getBlockByNumber": [["Q|T", "B"], "Block", 2],
+    "eth_getTransactionByHash": [["D32"], "Transaction", 1],
+    "eth_getTransactionByBlockHashAndIndex": [["D32", "Q"], "Transaction", 2],
+    "eth_getTransactionByBlockNumberAndIndex": [["Q|T", "Q"], "Transaction", 2],
+    "eth_getTransactionReceipt": [["D32"], "Receipt", 1],
+    "eth_getUncleByBlockHashAndIndex": [["D32", "Q"], "Block", 1],
+    "eth_getUncleByBlockNumberAndIndex": [["Q|T", "Q"], "Block", 2],
+    "eth_getCompilers": [[], ["S"]],
+    "eth_compileLLL": [["S"], "D", 1],
+    "eth_compileSolidity": [["S"], "D", 1],
+    "eth_compileSerpent": [["S"], "D", 1],
+    "eth_newFilter": [["Filter"], "Q", 1],
+    "eth_newBlockFilter": [[], "Q"],
+    "eth_newPendingTransactionFilter": [[], "Q"],
+    "eth_uninstallFilter": [["Q"], "B", 1],
+    "eth_getFilterChanges": [["Q"], ["FilterChange"], 1],
+    "eth_getFilterLogs": [["Q"], ["FilterChange"], 1],
+    "eth_getLogs": [["Filter"], ["FilterChange"], 1],
+    "eth_getWork": [[], ["D"]],
+    "eth_submitWork": [["D", "D32", "D32"], "B", 3],
+    "eth_submitHashrate": [["D", "D"], "B", 2],
+    "db_putString": [["S", "S", "S"], "B", 2],
+    "db_getString": [["S", "S"], "S", 2],
+    "db_putHex": [["S", "S", "D"], "B", 2],
+    "db_getHex": [["S", "S"], "D", 2],
+    "shh_post": [["SHHPost"], "B", 1],
+    "shh_version": [[], "S"],
+    "shh_newIdentity": [[], "D"],
+    "shh_hasIdentity": [["D"], "B"],
+    "shh_newGroup": [[], "D"],
+    "shh_addToGroup": [["D"], "B", 1],
+    "shh_newFilter": [["SHHFilter"], "Q", 1],
+    "shh_uninstallFilter": [["Q"], "B", 1],
+    "shh_getFilterChanges": [["Q"], ["SHHFilterChange"], 1],
+    "shh_getMessages": [["Q"], ["SHHFilterChange"], 1]
+  },
+  "tags": ["latest", "earliest", "pending"],
+  "objects": {
+    "EthSyncing": {
+      "__required": [],
+      "startingBlock": "Q",
+      "currentBlock": "Q",
+      "highestBlock": "Q"
+    },
+    "SendTransaction": {
+      "__required": ["from", "data"],
+      "from": "D20",
+      "to": "D20",
+      "gas": "Q",
+      "gasPrice": "Q",
+      "value": "Q",
+      "data": "D",
+      "nonce": "Q"
+    },
+    "EstimateTransaction": {
+      "__required": [],
+      "from": "D20",
+      "to": "D20",
+      "gas": "Q",
+      "gasPrice": "Q",
+      "value": "Q",
+      "data": "D",
+      "nonce": "Q"
+    },
+    "CallTransaction": {
+      "__required": ["to"],
+      "from": "D20",
+      "to": "D20",
+      "gas": "Q",
+      "gasPrice": "Q",
+      "value": "Q",
+      "data": "D",
+      "nonce": "Q"
+    },
+    "Block": {
+      "__required": [],
+      "number": "Q",
+      "hash": "D32",
+      "parentHash": "D32",
+      "nonce": "D",
+      "sha3Uncles": "D",
+      "logsBloom": "D",
+      "transactionsRoot": "D",
+      "stateRoot": "D",
+      "receiptsRoot": "D",
+      "miner": "D",
+      "difficulty": "Q",
+      "totalDifficulty": "Q",
+      "extraData": "D",
+      "size": "Q",
+      "gasLimit": "Q",
+      "gasUsed": "Q",
+      "timestamp": "Q",
+      "transactions": ["DATA|Transaction"],
+      "uncles": ["D"]
+    },
+    "Transaction": {
+      "__required": [],
+      "hash": "D32",
+      "nonce": "Q",
+      "blockHash": "D32",
+      "blockNumber": "Q",
+      "transactionIndex": "Q",
+      "from": "D20",
+      "to": "D20",
+      "value": "Q",
+      "gasPrice": "Q",
+      "gas": "Q",
+      "input": "D"
+    },
+    "Receipt": {
+      "__required": [],
+      "transactionHash": "D32",
+      "transactionIndex": "Q",
+      "blockHash": "D32",
+      "blockNumber": "Q",
+      "cumulativeGasUsed": "Q",
+      "gasUsed": "Q",
+      "contractAddress": "D20",
+      "logs": ["FilterChange"]
+    },
+    "Filter": {
+      "__required": [],
+      "fromBlock": "Q|T",
+      "toBlock": "Q|T",
+      "address": "D20",
+      "topics": ["D"]
+    },
+    "FilterChange": {
+      "__required": [],
+      "removed": "B",
+      "logIndex": "Q",
+      "transactionIndex": "Q",
+      "transactionHash": "D32",
+      "blockHash": "D32",
+      "blockNumber": "Q",
+      "address": "D20",
+      "data": "Array|DATA",
+      "topics": ["D"]
+    },
+    "SHHPost": {
+      "__required": ["topics", "payload", "priority", "ttl"],
+      "from": "D",
+      "to": "D",
+      "topics": ["D"],
+      "payload": "D",
+      "priority": "Q",
+      "ttl": "Q"
+    },
+    "SHHFilter": {
+      "__required": ["topics"],
+      "to": "D",
+      "topics": ["D"]
+    },
+    "SHHFilterChange": {
+      "__required": [],
+      "hash": "D",
+      "from": "D",
+      "to": "D",
+      "expiry": "Q",
+      "ttl": "Q",
+      "sent": "Q",
+      "topics": ["D"],
+      "payload": "D",
+      "workProved": "Q"
+    },
+    "SHHMessage": {
+      "__required": [],
+      "hash": "D",
+      "from": "D",
+      "to": "D",
+      "expiry": "Q",
+      "ttl": "Q",
+      "sent": "Q",
+      "topics": ["D"],
+      "payload": "D",
+      "workProved": "Q"
+    }
+  }
+}
+
+},{}],78:[function(require,module,exports){
 arguments[4][67][0].apply(exports,arguments)
 },{"buffer":4,"dup":67,"is-hex-prefixed":87,"strip-hex-prefix":115}],79:[function(require,module,exports){
 var hash = exports;
