@@ -23,6 +23,7 @@
     "ethjs": "^0.3.0"
   },
   "devDependencies": {
+    "babel-runtime": "^6.26.0",
     "brfs": "^1.4.3"
   }
 }
