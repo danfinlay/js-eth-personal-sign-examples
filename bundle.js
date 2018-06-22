@@ -27,7 +27,7 @@ signTypedDataButton.addEventListener('click', function(event) {
   const msgParams = [
     {
       type: 'string',
-      name: 'address',
+      name: 'tokenAddress',
       value: '0xecf8f87f810ecf450940c9f60066b4a7a501d6a7'
     },
     {
@@ -37,17 +37,17 @@ signTypedDataButton.addEventListener('click', function(event) {
     },
     {
       type: 'bool',
-      name: 'sampleBoolean',
+      name: 'isSeller',
       value: true,
     },
     {
       type: 'uint64',
-      name: 'aNumber',
+      name: 'price',
       value: '22200'
     },
     {
       type: 'uint64',
-      name: 'anotherUint',
+      name: 'expiration',
       value: '1539325823'
     },
   ]
