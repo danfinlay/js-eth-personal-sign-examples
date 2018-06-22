@@ -203,7 +203,7 @@ signTypedDataButton.addEventListener('click', function(event) {
     {
       type: 'uint32',
       name: 'amount',
-      value: '98794853168978'
+      value: '98798978'
     },
   ]
 
