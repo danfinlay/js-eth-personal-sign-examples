@@ -197,7 +197,7 @@ signTypedDataButton.addEventListener('click', function(event) {
       value: '22200'
     },
     {
-      type: 'boolean',
+      type: 'bool',
       name: 'isSeller',
       value: 'false'
     },
