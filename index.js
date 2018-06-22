@@ -204,6 +204,11 @@ signTypedDataButton.addEventListener('click', function(event) {
       value: '98794853168978'
     },
     {
+      type: 'boolean',
+      name: 'isSeller',
+      value: false
+    },
+    {
       type: 'uint64',
       name: 'price',
       value: '22200'
