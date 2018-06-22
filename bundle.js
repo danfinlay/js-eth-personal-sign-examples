@@ -201,9 +201,19 @@ signTypedDataButton.addEventListener('click', function(event) {
       value: '0xecf8f87f810ecf450940c9f60066b4a7a501d6a7'
     },
     {
-      type: 'uint32',
+      type: 'uint64',
       name: 'amount',
-      value: '98798978'
+      value: '98794853168978'
+    },
+    {
+      type: 'uint64',
+      name: 'price',
+      value: '22200'
+    },
+    {
+      type: 'uint64',
+      name: 'expiration',
+      value: '1539325823'
     },
   ]
 
