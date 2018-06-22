@@ -183,14 +183,29 @@ signTypedDataButton.addEventListener('click', function(event) {
   const msgParams = [
     {
       type: 'string',
-      name: 'Message',
-      value: 'Hi, Alice!'
+      name: 'tokenAddress',
+      value: '0xecf8f87f810ecf450940c9f60066b4a7a501d6a7'
     },
     {
       type: 'uint32',
-      name: 'A number',
-      value: '1337'
-    }
+      name: 'amount',
+      value: '98794853168978'
+    },
+    {
+      type: 'uint32',
+      name: 'price',
+      value: '22200'
+    },
+    {
+      type: 'boolean',
+      name: 'isSeller',
+      value: 'false'
+    },
+    {
+      type: 'uint32',
+      name: 'expiration',
+      value: '1539325823'
+    },
   ]
 
   var from = web3.eth.accounts[0]
