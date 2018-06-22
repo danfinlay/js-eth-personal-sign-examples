@@ -180,6 +180,18 @@ ethjsPersonalSignButton.addEventListener('click', function(event) {
 signTypedDataButton.addEventListener('click', function(event) {
   event.preventDefault()
 
+  //const msgParams = [
+    //{
+      //type: 'string',
+      //name: 'Message',
+      //value: 'Hi, Alice!'
+    //},
+    //{
+      //type: 'uint32',
+      //name: 'A number',
+      //value: '1337'
+    //}
+  //]
   const msgParams = [
     {
       type: 'string',
@@ -190,16 +202,6 @@ signTypedDataButton.addEventListener('click', function(event) {
       type: 'uint32',
       name: 'amount',
       value: '98794853168978'
-    },
-    {
-      type: 'uint32',
-      name: 'price',
-      value: '22200'
-    },
-    {
-      type: 'uint32',
-      name: 'expiration',
-      value: '1539325823'
     },
   ]
 
@@ -214,7 +216,7 @@ signTypedDataButton.addEventListener('click', function(event) {
     })
   */
 
-  console.log('CLICKED, SENDING PERSONAL SIGN REQ')
+   console.log('CLICKED, SENDING PERSONAL SIGN REQ')
   var params = [msgParams, from]
   console.dir(params)
   var method = 'eth_signTypedData'
@@ -226,7 +228,7 @@ signTypedDataButton.addEventListener('click', function(event) {
   }, function (err, result) {
     if (err) return console.dir(err)
     if (result.error) {
-      console.error(result.error.message)
+      alert(result.error.message)
     }
     if (result.error) return console.error(result)
     console.log('PERSONAL SIGNED:' + JSON.stringify(result.result))
