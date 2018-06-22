@@ -197,11 +197,6 @@ signTypedDataButton.addEventListener('click', function(event) {
       value: '22200'
     },
     {
-      type: 'bool',
-      name: 'isSeller',
-      value: 'false'
-    },
-    {
       type: 'uint32',
       name: 'expiration',
       value: '1539325823'
@@ -219,7 +214,7 @@ signTypedDataButton.addEventListener('click', function(event) {
     })
   */
 
-   console.log('CLICKED, SENDING PERSONAL SIGN REQ')
+  console.log('CLICKED, SENDING PERSONAL SIGN REQ')
   var params = [msgParams, from]
   console.dir(params)
   var method = 'eth_signTypedData'
@@ -231,7 +226,7 @@ signTypedDataButton.addEventListener('click', function(event) {
   }, function (err, result) {
     if (err) return console.dir(err)
     if (result.error) {
-      alert(result.error.message)
+      console.error(result.error.message)
     }
     if (result.error) return console.error(result)
     console.log('PERSONAL SIGNED:' + JSON.stringify(result.result))
