@@ -206,7 +206,7 @@ signTypedDataButton.addEventListener('click', function(event) {
     {
       type: 'bool',
       name: 'isSeller',
-      value: false
+      value: false,
     },
     {
       type: 'uint64',
