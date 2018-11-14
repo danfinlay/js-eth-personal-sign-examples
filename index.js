@@ -6,10 +6,22 @@ window.Eth = Eth
 var fs = require('fs')
 var terms = fs.readFileSync(__dirname + '/terms.txt').toString()
 
+connectButton.addEventListener('click', function () {
+  connect()
+})
+
+function connect () {
+  if (typeof ethereum !== 'undefined') {
+    ethereum.enable()
+    .catch(console.error)
+  }
+}
+
 ethSignButton.addEventListener('click', function(event) {
   event.preventDefault()
   var msg = '0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e0'
   var from = web3.eth.accounts[0]
+  if (!from) return connect()
   web3.eth.sign(from, msg, function (err, result) {
     if (err) return console.error(err)
     console.log('SIGNED:' + result)
@@ -23,6 +35,7 @@ personalSignButton.addEventListener('click', function(event) {
   // var msg = '0x1' // hexEncode(text)
   console.log(msg)
   var from = web3.eth.accounts[0]
+  if (!from) return connect()
 
   /*  web3.personal.sign not yet implemented!!!
    *  We're going to have to assemble the tx manually!
@@ -94,6 +107,7 @@ personalRecoverTest.addEventListener('click', function(event) {
   // var msg = '0x1' // hexEncode(text)
   console.log(msg)
   var from = web3.eth.accounts[0]
+  if (!from) return connect()
 
   /*  web3.personal.sign not yet implemented!!!
    *  We're going to have to assemble the tx manually!
@@ -151,6 +165,7 @@ ethjsPersonalSignButton.addEventListener('click', function(event) {
   var text = terms
   var msg = ethUtil.bufferToHex(new Buffer(text, 'utf8'))
   var from = web3.eth.accounts[0]
+  if (!from) return connect()
 
   console.log('CLICKED, SENDING PERSONAL SIGN REQ')
   var params = [from, msg]
@@ -194,6 +209,7 @@ signTypedDataButton.addEventListener('click', function(event) {
   ]
 
   var from = web3.eth.accounts[0]
+  if (!from) return connect()
 
   /*  web3.eth.signTypedData not yet implemented!!!
    *  We're going to have to assemble the tx manually!
@@ -250,6 +266,7 @@ ethjsSignTypedDataButton.addEventListener('click', function(event) {
   ]
 
   var from = web3.eth.accounts[0]
+  if (!from) return connect()
 
   console.log('CLICKED, SENDING PERSONAL SIGN REQ')
   var params = [msgParams, from]
