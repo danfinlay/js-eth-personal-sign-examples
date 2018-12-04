@@ -18,7 +18,7 @@
   },
   "homepage": "https://github.com/flyswatter/js-eth-personal-sign-examples#readme",
   "dependencies": {
-    "eth-sig-util": "^1.2.0",
+    "eth-sig-util": "^2.1.0",
     "ethereumjs-util": "^5.1.1",
     "ethjs": "^0.3.0"
   },
