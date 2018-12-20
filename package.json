@@ -23,6 +23,8 @@
     "ethjs": "^0.3.0"
   },
   "devDependencies": {
-    "brfs": "^1.4.3"
+    "babel-runtime": "^6.26.0",
+    "brfs": "^1.4.3",
+    "browserify": "^16.2.3"
   }
 }
