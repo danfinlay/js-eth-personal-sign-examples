@@ -68,6 +68,7 @@ personalSignButton.addEventListener('click', function(event) {
 
     if (recovered === from ) {
       console.log('SigUtil Successfully verified signer as ' + from)
+      window.alert('SigUtil Successfully verified signer as ' + from)
     } else {
       console.dir(recovered)
       console.log('SigUtil Failed to verify signer when comparing ' + recovered.result + ' to ' + from)
