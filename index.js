@@ -2,7 +2,7 @@ var ethUtil = require('ethereumjs-util')
 var sigUtil = require('eth-sig-util')
 var Eth = require('ethjs')
 window.Eth = Eth
-
+console.log('new V2')
 var fs = require('fs')
 var terms = fs.readFileSync(__dirname + '/terms.txt').toString()
 
@@ -68,6 +68,7 @@ personalSignButton.addEventListener('click', function(event) {
 
     if (recovered === from ) {
       console.log('SigUtil Successfully verified signer as ' + from)
+      window.alert('SigUtil Successfully verified signer as ' + from)
     } else {
       console.dir(recovered)
       console.log('SigUtil Failed to verify signer when comparing ' + recovered.result + ' to ' + from)
@@ -251,61 +252,69 @@ signTypedDataButton.addEventListener('click', function(event) {
 
 signTypedDataV3Button.addEventListener('click', function(event) {
   event.preventDefault()
-
-  const msgParams = JSON.stringify({types:{
-    EIP712Domain:[
-      {name:"name",type:"string"},
-      {name:"version",type:"string"},
-      {name:"chainId",type:"uint256"},
-      {name:"verifyingContract",type:"address"}
-    ],
-    Person:[
-      {name:"name",type:"string"},
-      {name:"wallet",type:"address"}
-    ],
-    Mail:[
-      {name:"from",type:"Person"},
-      {name:"to",type:"Person"},
-      {name:"contents",type:"string"}
-    ]
-  },
-  primaryType:"Mail",
-  domain:{name:"Ether Mail",version:"1",chainId:1,verifyingContract:"0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"},
-  message:{
-    from:{name:"Cow",wallet:"0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"},
-    to:{name:"Bob",wallet:"0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"},
-    contents:"Hello, Bob!"}
-  })
-
-    
-
-  var from = web3.eth.accounts[0]
-
-  console.log('CLICKED, SENDING PERSONAL SIGN REQ', 'from', from, msgParams)
-  var params = [from, msgParams]
-  console.dir(params)
-  var method = 'eth_signTypedData_v3'
-
+  
   web3.currentProvider.sendAsync({
-    method,
-    params,
-    from,
+    method: 'net_version',
+    params: [],
+    jsonrpc: "2.0"
   }, function (err, result) {
-    if (err) return console.dir(err)
-    if (result.error) {
-      alert(result.error.message)
-    }
-    if (result.error) return console.error('ERROR', result)
-    console.log('TYPED SIGNED:' + JSON.stringify(result.result))
-
-    const recovered = sigUtil.recoverTypedSignature({ data: JSON.parse(msgParams), sig: result.result })
-
-    if (ethUtil.toChecksumAddress(recovered) === ethUtil.toChecksumAddress(from)) {
-      alert('Successfully ecRecovered signer as ' + from)
-    } else {
-      alert('Failed to verify signer when comparing ' + result + ' to ' + from)
-    }
-
+    const netId = result.result
+    const msgParams = JSON.stringify({types:{
+      EIP712Domain:[
+        {name:"name",type:"string"},
+        {name:"version",type:"string"},
+        {name:"chainId",type:"uint256"},
+        {name:"verifyingContract",type:"address"}
+      ],
+      Person:[
+        {name:"name",type:"string"},
+        {name:"wallet",type:"address"}
+      ],
+      Mail:[
+        {name:"from",type:"Person"},
+        {name:"to",type:"Person"},
+        {name:"contents",type:"string"}
+      ]
+    },
+    primaryType:"Mail",
+    domain:{name:"Ether Mail",version:"1",chainId:netId,verifyingContract:"0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"},
+    message:{
+      from:{name:"Cow",wallet:"0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"},
+      to:{name:"Bob",wallet:"0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"},
+      contents:"Hello, Bob!"}
+    })
+  
+      
+  
+    var from = web3.eth.accounts[0]
+  
+    console.log('CLICKED, SENDING PERSONAL SIGN REQ', 'from', from, msgParams)
+    var params = [from, msgParams]
+    console.dir(params)
+    var method = 'eth_signTypedData_v3'
+  
+    web3.currentProvider.sendAsync({
+      method,
+      params,
+      from,
+    }, function (err, result) {
+      if (err) return console.dir(err)
+      if (result.error) {
+        alert(result.error.message)
+      }
+      if (result.error) return console.error('ERROR', result)
+      console.log('TYPED SIGNED:' + JSON.stringify(result.result))
+  
+      const recovered = sigUtil.recoverTypedSignature({ data: JSON.parse(msgParams), sig: result.result })
+  
+      if (ethUtil.toChecksumAddress(recovered) === ethUtil.toChecksumAddress(from)) {
+        alert('Successfully ecRecovered signer as ' + from)
+      } else {
+        alert('Failed to verify signer when comparing ' + result + ' to ' + from)
+      }
+  
+    })
+  
   })
 
 })
