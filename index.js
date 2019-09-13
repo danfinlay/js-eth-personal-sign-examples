@@ -10,9 +10,13 @@ connectButton.addEventListener('click', function () {
   connect()
 })
 
+function account() {
+  return web3.currentProvider.send({method: 'eth_accounts'}).result[0]
+}
+
 function connect () {
   if (typeof ethereum !== 'undefined') {
-    ethereum.enable()
+    web3.currentProvider.enable()
     .catch(console.error)
   }
 }
@@ -20,9 +24,10 @@ function connect () {
 ethSignButton.addEventListener('click', function(event) {
   event.preventDefault()
   var msg = '0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e0'
-  var from = web3.eth.accounts[0]
+  var from = account()
   if (!from) return connect()
-  web3.eth.sign(from, msg, function (err, result) {
+  var params = {method: 'eth_sign', params: [from, msg], id: 1}
+  web3.currentProvider.sendAsync(params, function (err, result) {
     if (err) return console.error(err)
     console.log('SIGNED:' + result)
   })
@@ -34,7 +39,7 @@ personalSignButton.addEventListener('click', function(event) {
   var msg = ethUtil.bufferToHex(new Buffer(text, 'utf8'))
   // var msg = '0x1' // hexEncode(text)
   console.log(msg)
-  var from = web3.eth.accounts[0]
+  var from = account()
   if (!from) return connect()
 
   /*  web3.personal.sign not yet implemented!!!
@@ -107,7 +112,7 @@ personalRecoverTest.addEventListener('click', function(event) {
   var msg = ethUtil.bufferToHex(new Buffer(text, 'utf8'))
   // var msg = '0x1' // hexEncode(text)
   console.log(msg)
-  var from = web3.eth.accounts[0]
+  var from = account()
   if (!from) return connect()
 
   /*  web3.personal.sign not yet implemented!!!
@@ -165,7 +170,7 @@ ethjsPersonalSignButton.addEventListener('click', function(event) {
   event.preventDefault()
   var text = terms
   var msg = ethUtil.bufferToHex(new Buffer(text, 'utf8'))
-  var from = web3.eth.accounts[0]
+  var from = account()
   if (!from) return connect()
 
   console.log('CLICKED, SENDING PERSONAL SIGN REQ')
@@ -209,7 +214,7 @@ signTypedDataButton.addEventListener('click', function(event) {
     }
   ]
 
-  var from = web3.eth.accounts[0]
+  var from = account()
   if (!from) return connect()
 
   /*  web3.eth.signTypedData not yet implemented!!!
@@ -286,7 +291,7 @@ signTypedDataV3Button.addEventListener('click', function(event) {
   
       
   
-    var from = web3.eth.accounts[0]
+    var from = account()
   
     console.log('CLICKED, SENDING PERSONAL SIGN REQ', 'from', from, msgParams)
     var params = [from, msgParams]
@@ -335,7 +340,7 @@ ethjsSignTypedDataButton.addEventListener('click', function(event) {
     }
   ]
 
-  var from = web3.eth.accounts[0]
+  var from = account()
   if (!from) return connect()
 
   console.log('CLICKED, SENDING PERSONAL SIGN REQ')
