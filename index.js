@@ -22,7 +22,7 @@ ethSignButton.addEventListener('click', function(event) {
   var msg = '0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e0'
   var from = web3.eth.accounts[0]
   if (!from) return connect()
-  web3.eth.sign(from, msg, function (err, result) {
+  web3.eth.sign(from, web3.sha3(msg, { encoding: 'hex' }), function (err, result) {
     if (err) return console.error(err)
     console.log('SIGNED:' + result)
   })
