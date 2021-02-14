@@ -3,9 +3,13 @@ const ethUtil = require('ethereumjs-util')
 const sigUtil = require('eth-sig-util')
 const Eth = require('ethjs')
 window.Eth = Eth
-console.log('new V2')
-const fs = require('fs')
-const terms = fs.readFileSync(__dirname + '/terms.txt').toString()
+// console.log('new V2')
+// const fs = require('fs')
+require('@metamask/legacy-web3');
+// const terms = fs.readFileSync(__dirname + '/terms.txt').toString('utf-8')
+const terms = 'test test test'
+
+const { web3 } = window;
 
 
 connectButton.addEventListener('click', function () {
@@ -24,15 +28,31 @@ async function getAccounts () {
 
 
 ethSignButton.addEventListener('click', async function (event) {
-  event.preventDefault()
-  const accounts = await getAccounts();
-  var msgHash = ethUtil.keccak256('An amazing message, for use with MetaMask!')
-  var from = accounts[0]
-  if (!from) return connect()
-  web3.eth.sign(from, msgHash, function (err, result) {
-    if (err) return console.error(err)
-    console.log('SIGNED:' + result)
-  })
+  // if (!from) return connect()
+  // const ethResult = await ethereum.request({
+  //   method: 'eth_sign',
+  //   params: [from, msgHash]
+  // })
+  // console.log('ethResult', ethResult);
+  try {
+    event.preventDefault()
+    const accounts = await getAccounts();
+    const from = accounts[0]
+    const msgHash = ethUtil.keccak256('An amazing message, for use with MetaMask!')
+    const ethResult = await ethereum.request({
+      method: 'eth_sign',
+      params: [from, msgHash],
+    })
+    console.log('ethResult', ethResult)
+  } catch (err) {
+    console.error(err)
+  }
+
+
+  // web3.eth.sign(from, msgHash, function (err, result) {
+  //   if (err) return console.error(err)
+  //   console.log('SIGNED:' + result)
+  // })
 })
 
 personalSignButton.addEventListener('click', async function (event) {
