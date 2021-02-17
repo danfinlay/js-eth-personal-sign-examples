@@ -180,7 +180,6 @@ personalRecoverTest.addEventListener('click', function (event) {
 
     })
   })
-
 })
 
 ethjsPersonalSignButton.addEventListener('click', async function (event) {
@@ -416,9 +415,7 @@ signTypedDataV4Button.addEventListener('click', function (event) {
     } else {
       alert('Failed to verify signer when comparing ' + result + ' to ' + from)
     }
-
   })
-
 })
 
 ethjsSignTypedDataButton.addEventListener('click', async function (event) {
@@ -445,20 +442,17 @@ ethjsSignTypedDataButton.addEventListener('click', async function (event) {
   const provider = await detectEthereumProvider();
   var eth = new Eth(provider)
 
-  eth.signTypedData(msgParams, from)
-    .then((signed) => {
-      console.log('Signed!  Result is: ', signed)
-      console.log('Recovering...')
+  const signed = await eth.signTypedData(msgParams, from)
+  console.log('Signed!  Result is: ', signed)
+  console.log('Recovering...')
 
-      const recovered = sigUtil.recoverTypedSignature({ data: msgParams, sig: signed })
+  const recovered = sigUtil.recoverTypedSignature({ data: msgParams, sig: signed })
 
-      if (ethUtil.toChecksumAddress(recovered) === ethUtil.toChecksumAddress(from)) {
-        alert('Successfully ecRecovered signer as ' + from)
-      } else {
-        alert('Failed to verify signer when comparing ' + signed + ' to ' + from)
-      }
-
-    })
+  if (ethUtil.toChecksumAddress(recovered) === ethUtil.toChecksumAddress(from)) {
+    alert('Successfully ecRecovered signer as ' + from)
+  } else {
+    alert('Failed to verify signer when comparing ' + signed + ' to ' + from)
+  }
 })
 
 }).call(this)}).call(this,require("buffer").Buffer)
