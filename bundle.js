@@ -13,29 +13,22 @@ const terms = 'test test test'
 
 const { web3 } = window;
 
-
 connectButton.addEventListener('click', function () {
   connect()
 })
 
-function connect () {
+function connect() {
   if (typeof ethereum !== 'undefined') {
     ethereum.request({ method: 'eth_requestAccounts' }).catch(console.error)
   }
 }
 
-async function getAccounts () {
+async function getAccounts() {
   return ethereum.request({ method: 'eth_requestAccounts' });
 }
 
 
 ethSignButton.addEventListener('click', async function (event) {
-  // if (!from) return connect()
-  // const ethResult = await ethereum.request({
-  //   method: 'eth_sign',
-  //   params: [from, msgHash]
-  // })
-  // console.log('ethResult', ethResult);
   try {
     event.preventDefault()
     const accounts = await getAccounts();
@@ -47,14 +40,8 @@ ethSignButton.addEventListener('click', async function (event) {
     })
     console.log('ethResult', ethResult)
   } catch (err) {
-    console.error(err)
+    console.error('Error:', err)
   }
-
-
-  // web3.eth.sign(from, msgHash, function (err, result) {
-  //   if (err) return console.error(err)
-  //   console.log('SIGNED:' + result)
-  // })
 })
 
 personalSignButton.addEventListener('click', async function (event) {
@@ -12671,52 +12658,36 @@ utils.intFromLE = intFromLE;
 
 },{"bn.js":16,"minimalistic-assert":190,"minimalistic-crypto-utils":191}],118:[function(require,module,exports){
 module.exports={
-  "_from": "elliptic@^6.5.2",
-  "_id": "elliptic@6.5.4",
-  "_inBundle": false,
-  "_integrity": "sha512-iLhC6ULemrljPZb+QutR5TQGB+pdW6KGD5RSegS+8sorOZT+rdQFbsQFJgvN3eRqNALqJer4oQ16YvJHlU8hzQ==",
-  "_location": "/elliptic",
-  "_phantomChildren": {},
-  "_requested": {
-    "type": "range",
-    "registry": true,
-    "raw": "elliptic@^6.5.2",
-    "name": "elliptic",
-    "escapedName": "elliptic",
-    "rawSpec": "^6.5.2",
-    "saveSpec": null,
-    "fetchSpec": "^6.5.2"
-  },
-  "_requiredBy": [
-    "/browserify-sign",
-    "/create-ecdh",
-    "/ethereumjs-abi/ethereumjs-util",
-    "/ethereumjs-util",
-    "/secp256k1"
+  "name": "elliptic",
+  "version": "6.5.4",
+  "description": "EC cryptography",
+  "main": "lib/elliptic.js",
+  "files": [
+    "lib"
   ],
-  "_resolved": "https://registry.npmjs.org/elliptic/-/elliptic-6.5.4.tgz",
-  "_shasum": "da37cebd31e79a1367e941b592ed1fbebd58abbb",
-  "_spec": "elliptic@^6.5.2",
-  "_where": "D:\\Github\\js-eth-personal-sign-examples\\node_modules\\ethereumjs-abi\\node_modules\\ethereumjs-util",
-  "author": {
-    "name": "Fedor Indutny",
-    "email": "fedor@indutny.com"
+  "scripts": {
+    "lint": "eslint lib test",
+    "lint:fix": "npm run lint -- --fix",
+    "unit": "istanbul test _mocha --reporter=spec test/index.js",
+    "test": "npm run lint && npm run unit",
+    "version": "grunt dist && git add dist/"
   },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:indutny/elliptic"
+  },
+  "keywords": [
+    "EC",
+    "Elliptic",
+    "curve",
+    "Cryptography"
+  ],
+  "author": "Fedor Indutny <fedor@indutny.com>",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/indutny/elliptic/issues"
   },
-  "bundleDependencies": false,
-  "dependencies": {
-    "bn.js": "^4.11.9",
-    "brorand": "^1.1.0",
-    "hash.js": "^1.0.0",
-    "hmac-drbg": "^1.0.1",
-    "inherits": "^2.0.4",
-    "minimalistic-assert": "^1.0.1",
-    "minimalistic-crypto-utils": "^1.0.1"
-  },
-  "deprecated": false,
-  "description": "EC cryptography",
+  "homepage": "https://github.com/indutny/elliptic",
   "devDependencies": {
     "brfs": "^2.0.2",
     "coveralls": "^3.1.0",
@@ -12732,31 +12703,15 @@ module.exports={
     "istanbul": "^0.4.5",
     "mocha": "^8.0.1"
   },
-  "files": [
-    "lib"
-  ],
-  "homepage": "https://github.com/indutny/elliptic",
-  "keywords": [
-    "EC",
-    "Elliptic",
-    "curve",
-    "Cryptography"
-  ],
-  "license": "MIT",
-  "main": "lib/elliptic.js",
-  "name": "elliptic",
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@github.com/indutny/elliptic.git"
-  },
-  "scripts": {
-    "lint": "eslint lib test",
-    "lint:fix": "npm run lint -- --fix",
-    "test": "npm run lint && npm run unit",
-    "unit": "istanbul test _mocha --reporter=spec test/index.js",
-    "version": "grunt dist && git add dist/"
-  },
-  "version": "6.5.4"
+  "dependencies": {
+    "bn.js": "^4.11.9",
+    "brorand": "^1.1.0",
+    "hash.js": "^1.0.0",
+    "hmac-drbg": "^1.0.1",
+    "inherits": "^2.0.4",
+    "minimalistic-assert": "^1.0.1",
+    "minimalistic-crypto-utils": "^1.0.1"
+  }
 }
 
 },{}],119:[function(require,module,exports){

@@ -11,29 +11,22 @@ const terms = 'test test test'
 
 const { web3 } = window;
 
-
 connectButton.addEventListener('click', function () {
   connect()
 })
 
-function connect () {
+function connect() {
   if (typeof ethereum !== 'undefined') {
     ethereum.request({ method: 'eth_requestAccounts' }).catch(console.error)
   }
 }
 
-async function getAccounts () {
+async function getAccounts() {
   return ethereum.request({ method: 'eth_requestAccounts' });
 }
 
 
 ethSignButton.addEventListener('click', async function (event) {
-  // if (!from) return connect()
-  // const ethResult = await ethereum.request({
-  //   method: 'eth_sign',
-  //   params: [from, msgHash]
-  // })
-  // console.log('ethResult', ethResult);
   try {
     event.preventDefault()
     const accounts = await getAccounts();
@@ -45,14 +38,8 @@ ethSignButton.addEventListener('click', async function (event) {
     })
     console.log('ethResult', ethResult)
   } catch (err) {
-    console.error(err)
+    console.error('Error:', err)
   }
-
-
-  // web3.eth.sign(from, msgHash, function (err, result) {
-  //   if (err) return console.error(err)
-  //   console.log('SIGNED:' + result)
-  // })
 })
 
 personalSignButton.addEventListener('click', async function (event) {
