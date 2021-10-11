@@ -5,26 +5,30 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "browserify -t brfs index.js -o bundle.js"
+    "build": "browserify -t brfs index.js -o bundle.js",
+    "dev": "watchify index.js -o bundle.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/flyswatter/js-eth-personal-sign-examples.git"
+    "url": "git+https://github.com/danfinlay/js-eth-personal-sign-examples"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/flyswatter/js-eth-personal-sign-examples/issues"
+    "url": "https://github.com/danfinlay/js-eth-personal-sign-examples/issues"
   },
-  "homepage": "https://github.com/flyswatter/js-eth-personal-sign-examples#readme",
+  "homepage": "https://github.com/danfinlay/js-eth-personal-sign-examples#readme",
   "dependencies": {
+    "@metamask/legacy-web3": "^2.0.0",
     "eth-sig-util": "^2.3.0",
     "ethereumjs-util": "^5.1.1",
     "ethjs": "^0.3.0"
   },
   "devDependencies": {
+    "@metamask/detect-provider": "^1.2.0",
     "babel-runtime": "^6.26.0",
     "brfs": "^1.4.3",
-    "browserify": "^16.2.3"
+    "browserify": "^16.2.3",
+    "watchify": "^4.0.0"
   }
 }
